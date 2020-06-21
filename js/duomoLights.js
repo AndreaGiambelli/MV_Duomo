@@ -20,7 +20,6 @@ let timeline = d3
 d3.csv("logos.csv", type).then(function(data) {
   let dataset = data;
   let datasetForFilter = data;
-
   let dataset2 = data;
 
   let aaa = dataset2.map(({ logoName, logoStart, logoEnd }) => [
@@ -35,16 +34,16 @@ d3.csv("logos.csv", type).then(function(data) {
     ])
   );
 
-  console.log(bbb);
-  console.log(bbb.get("cinzano1"));
+  // console.log(bbb);
+  // console.log(bbb.get("cinzano1"));
 
   var map = new Map([
     [1, 2],
     [2, 3]
   ]);
 
-  console.log(aaa);
-  console.log(dataset2.length);
+  // console.log(aaa);
+  // console.log(dataset2.length);
 
   let groups;
 
@@ -275,7 +274,7 @@ d3.csv("logos.csv", type).then(function(data) {
       d.y = d.y + 50;
     });
 
-    console.log(timelineBands);
+    // console.log(timelineBands);
 
     d3.select("#timelineSvg")
       .selectAll("path")
@@ -317,85 +316,9 @@ d3.csv("logos.csv", type).then(function(data) {
   radialTimeline();
 });
 
-//d3.csv("cdc-diabetes-obesity.csv").then(function(dataset) {
-//
-//    let data = new Map(dataset.map(({county, diabetes, obesity}) => [county, [+diabetes, +obesity]]));
-//    console.log(data)
-//
-//
-//    const path = d3.geoPath();
-//
-//    const colors = [
-//        "#e8e8e8", "#e4d9ac", "#c8b35a",
-//        "#cbb8d7", "#c8ada0", "#af8e53",
-//        "#9972af", "#976b82", "#804d36"
-//    ]
-//
-//    d3.json("counties-albers-10m.json").then(function(us){
-//
-//        const states = new Map(us.objects.states.geometries.map(d => [d.id, d.properties]))
-//        console.log(states)
-//
-//        const n = 3;
-//
-//        const x = d3.scaleQuantile(Array.from(data.values(), d => d[0]), d3.range(n))
-//
-//        const y = d3.scaleQuantile(Array.from(data.values(), d => d[1]), d3.range(n))
-//
-//
-//        const labels = ["low", "", "high"]
-//
-//        const format = (value) => {
-//            console.log(value)
-//            if (!value) return "N/A";
-//            let [a, b] = value;
-//            return `${a}% ${"Diabetes"}${labels[x(a)] && ` (${labels[x(a)]})`} ${b}% ${"Obesity"}${labels[y(b)] && ` (${labels[y(b)]})`}`;
-//        }
-//
-//        const color = (value) => {
-//            if (!value) return "#ccc";
-//            let [a, b] = value;
-//            return colors[y(b) + x(a) * n];
-//        };
-//
-//
-//
-//        function chart() {
-//            const svg = d3.select("#prova")
-//            .append("svg")
-//            .attr("viewBox", [0, 0, 975, 610]);
-//
-//            svg.append("g")
-//                .selectAll("path")
-//                .data(topojson.feature(us, us.objects.counties).features)
-//                .join("path")
-//                .attr("d", path)
-//                .attr("fill", d => color(data.get(d.id)))
-//                .append("title")
-//                .text(d => `${d.properties.name}, ${states.get(d.id.slice(0, 2)).name} ${format(data.get(d.id))}`);
-//
-//
-//            svg.append("path")
-//                .datum(topojson.mesh(us, us.objects.states, (a, b) => a !== b))
-//                .attr("fill", "none")
-//                .attr("stroke", "white")
-//                .attr("stroke-linejoin", "round")
-//                .attr("d", path);
-//
-//        }
-//        chart()
-//
-//    })
-//
-//
-//
-//
-//})
-
 function type(d) {
   d.logoName = d.logoName;
   d.logoStart = +d.logoStart;
   d.logoEnd = +d.logoEnd;
-
   return d;
 }
