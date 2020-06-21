@@ -1,0 +1,86 @@
+body {
+    background-color: #00091c;
+}
+
+#title-wrapper p{
+ font-size: 30;
+ font-weight: 700;
+ color: white
+}
+
+div.timeline {
+    height: 1000px;
+        width: 1000px;
+}
+
+#timelineSvg {
+        height: 1100px;
+        width: 1100px;
+          color: black; 
+          fill: black; 
+      }
+
+.hidden {
+    display: none;
+}
+
+.show {
+    display: block;
+}
+
+.ticks, .label {
+  font: 10px sans-serif;
+  fill: white;
+}
+
+.track,
+.track-inset,
+.track-overlay {
+  stroke-linecap: round;
+}
+
+
+.track {
+  stroke: #000;
+  stroke-opacity: 0.3;
+  stroke-width: 10px;
+}
+
+.track-inset {
+  stroke: #ddd;
+  stroke-width: 8px;
+}
+
+.track-overlay {
+  pointer-events: stroke;
+  stroke-width: 50px;
+  stroke: transparent;
+  cursor: crosshair;
+}
+
+.handle {
+  fill: #fff;
+  stroke: #000;
+  stroke-opacity: 0.5;
+  stroke-width: 1.25px;
+}
+
+#play-button {
+    vertical-align: top; 
+      top: 140px;
+      left: 50px;
+      background: #f08080;
+      padding-right: 26px;
+      border-radius: 3px;
+      border: none;
+      color: white;
+      margin: 0;
+      padding: 0 12px;
+      width: 60px;
+      cursor: pointer;
+      height: 30px;
+    }
+
+    #play-button:hover {
+      background-color: #696969;
+    } 

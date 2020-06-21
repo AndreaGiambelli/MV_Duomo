@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>Duomo Lights</title>
+        <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+        <link rel='stylesheet' href='css/style.css' />
+        <link rel='stylesheet' href='js/slider/d3.slider.css' />
+        <script src="https://d3js.org/d3.v5.min.js"  charset="utf-8" ></script>
+        <script src="js/d3.timeline.js" charset="utf-8" type="text/javascript"></script>
+<script src="https://unpkg.com/d3-simple-slider"></script>
+   <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+    </head>
+
+    <body>
+        <div id="title-wrapper">
+            <p>Dark Side</p>
+            <p>Of the Duomo</p>
+        </div>
+        <div id=map-wrapper>
+            <div id="map"></div>
+            
+            <div id="slider2">
+               <button id="play-button2">Play</button>
+                <p id="value" style="color: white;">0</p>
+            </div>
+            <div id="timeline">
+            <svg id="timelineSvg" style="background:#00091c;" height=1100 width=1100>
+            </svg>
+            <div id="prova"></div>
+        </div>
+        </div>
+
+    </body>
+    <script src="https://unpkg.com/scrollama"></script>
+    <script src="js/duomoLights.js"></script>
