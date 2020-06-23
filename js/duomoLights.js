@@ -6,10 +6,10 @@ let margin = { top: 50, right: 50, bottom: 0, left: 50 },
 let timeline = d3
   .timeline()
   .size([1500, 200])
-  .bandStart(function(d) {
+  .bandStart(function (d) {
     return d.logoStart;
   })
-  .bandEnd(function(d) {
+  .bandEnd(function (d) {
     return d.logoEnd;
   })
   //.dateFormat(function (d) {return parseInt(d)})
@@ -17,34 +17,9 @@ let timeline = d3
   .extent([1946, 1999]);
 //.maxBandHeight(4);
 
-d3.csv("logos.csv", type).then(function(data) {
+d3.csv("logos.csv", type).then(function (data) {
   let dataset = data;
   let datasetForFilter = data;
-  let dataset2 = data;
-
-  let aaa = dataset2.map(({ logoName, logoStart, logoEnd }) => [
-    logoName,
-    [+logoStart, +logoEnd]
-  ]);
-
-  let bbb = new Map(
-    dataset2.map(({ logoName, logoStart, logoEnd }) => [
-      logoName,
-      [+logoStart, +logoEnd]
-    ])
-  );
-
-  // console.log(bbb);
-  // console.log(bbb.get("cinzano1"));
-
-  var map = new Map([
-    [1, 2],
-    [2, 3]
-  ]);
-
-  // console.log(aaa);
-  // console.log(dataset2.length);
-
   let groups;
 
   let svg = d3
@@ -62,14 +37,14 @@ d3.csv("logos.csv", type).then(function(data) {
     .width(width)
     .tickFormat(d3.format(""))
     .displayValue(false)
-    .on("onchange", val => {
+    .on("onchange", (val) => {
       d3.select("#value").text(val);
       currentYear = val;
       updateViz(val);
       radialTimeline();
     });
 
-  d3.select("#slider2")
+  d3.select("#slider")
     .append("svg")
     .attr("width", 1000)
     .attr("height", 100)
@@ -77,54 +52,38 @@ d3.csv("logos.csv", type).then(function(data) {
     .attr("transform", "translate(30,30)")
     .call(slider);
 
-  d3.select("#slider2")
-    .selectAll(".tick")
-    .select("line")
-    .attr("y2", "4");
+  d3.select("#slider").selectAll(".tick").select("line").attr("y2", "4");
 
-  d3.select("#slider2")
-    .selectAll(".tick")
-    .select("text")
-    .attr("y", "16");
+  d3.select("#slider").selectAll(".tick").select("text").attr("y", "16");
 
   let moving = false;
-  let currentValue = 0;
-  let targetValue = width;
-  const playButton = d3.select("#play-button2");
-  //
+  // let currentValue = 0;
+  // let targetValue = width;
+  const playButton = d3.select("#play-button");
   const startYear = 1946;
   const endYear = 2000;
   let currentYear = startYear;
-
   const numberOfSteps = endYear - startYear + 1;
   const yearWidth = Math.round(width / numberOfSteps);
 
-  // Generate pixel values for each year
-  const generator = function(i) {
-    return yearWidth * i;
-  };
-
   // Create array of pixel values for each year
-  const range = d3.range(55).map(generator);
+  const range = d3.range(55).map((d) => d * yearWidth);
 
   // Quantize scale from year to pixels
-  var xq = d3
-    .scaleQuantize()
-    .domain([startYear, endYear])
-    .range(range);
+  var xq = d3.scaleQuantize().domain([startYear, endYear]).range(range);
 
-  var rateById = d3.map();
-  var rateById2 = d3.map();
+  var mapStart = d3.map();
+  var mapEnd = d3.map();
 
-  let mapStart = d3.map(dataset, function(d) {
-    rateById.set(d.logoName, +d.logoStart);
+  d3.map(dataset, function (d) {
+    mapStart.set(d.logoName, +d.logoStart);
   });
 
-  let mapEnd = d3.map(dataset, function(d) {
-    rateById2.set(d.logoName, +d.logoEnd);
+  d3.map(dataset, function (d) {
+    mapEnd.set(d.logoName, +d.logoEnd);
   });
 
-  playButton.on("click", function() {
+  playButton.on("click", function () {
     var button = d3.select(this);
     if (button.text() == "Pause") {
       moving = false;
@@ -136,14 +95,14 @@ d3.csv("logos.csv", type).then(function(data) {
       timer = setInterval(step, 1000);
       button.text("Pause");
     }
-    console.log("Animation playing: " + moving);
+    // console.log("Animation playing: " + moving);
   });
 
   let loghi;
 
-  //////// SVG TEST ////////
+  //////// SVG ////////
 
-  d3.xml("svg/CARMINATI_REAL_forSVG.svg").then(function(xml) {
+  d3.xml("svg/CARMINATI_REAL_forSVG.svg").then(function (xml) {
     var mw = 1400; // map container width
     var mh = 600; // map container height
     let loghi_svg = d3
@@ -154,12 +113,8 @@ d3.csv("logos.csv", type).then(function(data) {
 
     var svgMap = xml.getElementsByTagName("g")[0];
 
-    //console.log(svgMap)
-
     loghi = loghi_svg.node().appendChild(svgMap);
-
     groups = d3.select("#Logos").selectAll("g");
-    console.log(groups);
 
     /// TESTS FOR SCATTERPLOT
     // groups
@@ -168,23 +123,20 @@ d3.csv("logos.csv", type).then(function(data) {
     //         return `translate (${i*50}, ${i*20})`
     //     })
     // .attr('transform', function (d) {
-    //     const start = rateById.get(this.id)
-    //     const end = rateById2.get(this.id)
+    //     const start = mapStart.get(this.id)
+    //     const end = mapEnd.get(this.id)
     //     const string = `translate (${start/10}, ${end/10})`
     //     console.log(string)
     //     return string;
     // })
     // .style('display', 'block')
 
-    groups.style("display", function(d) {
-      // console.log(rateById.get(this.id))
-      // console.log(currentYear)
-
+    groups.style("display", function (d) {
       if (
-        (rateById.get(this.id) <= currentYear &&
-          rateById2.get(this.id) >= currentYear) ||
-        (rateById.get(this.parentNode.id) <= currentYear &&
-          rateById2.get(this.parentNode.id) >= currentYear)
+        (mapStart.get(this.id) <= currentYear &&
+          mapEnd.get(this.id) >= currentYear) ||
+        (mapStart.get(this.parentNode.id) <= currentYear &&
+          mapEnd.get(this.parentNode.id) >= currentYear)
       ) {
         return "block";
       } else {
@@ -217,38 +169,28 @@ d3.csv("logos.csv", type).then(function(data) {
     //                .style('display', 'block');
     //        }
 
-    groups.style("display", function(d) {
-      // console.log(rateById.get(this.id))
-      // console.log(currentYear)
-
+    groups.style("display", function (d) {
       if (
-        (rateById.get(this.id) <= currentYear &&
-          rateById2.get(this.id) >= currentYear) ||
-        (rateById.get(this.parentNode.id) <= currentYear &&
-          rateById2.get(this.parentNode.id) >= currentYear)
+        (mapStart.get(this.id) <= currentYear &&
+          mapEnd.get(this.id) >= currentYear) ||
+        (mapStart.get(this.parentNode.id) <= currentYear &&
+          mapEnd.get(this.parentNode.id) >= currentYear)
       ) {
         return "block";
       } else {
         return "none";
       }
     });
-
-    // filter data set and redraw plot
-    var newData = dataset.filter(function(d) {
-      return d.date < h;
-    });
-
-    //        drawPlot(newData);
   }
 
   function radialTimeline() {
-    console.log(currentYear);
+    // console.log(currentYear);
 
     var arc = d3.arc();
 
-    //        datasetForFilter = data.filter( function(d){
-    //            return d.logoStart < currentYear && d.logoEnd > currentYear;
-    //        })
+    // datasetForFilter = data.filter(function (d) {
+    //   return d.logoStart < currentYear && d.logoEnd > currentYear;
+    // });
 
     d3.selectAll(".timeBand").remove();
 
@@ -259,9 +201,9 @@ d3.csv("logos.csv", type).then(function(data) {
       .domain([0, 2000])
       .range([0, 2 * Math.PI]);
 
-    console.log(angleScale(1946));
+    // console.log(angleScale(1946));
 
-    timelineBands.forEach(function(d) {
+    timelineBands.forEach(function (d) {
       d.startAngle = angleScale(d.start);
       if (d.start < currentYear * 0.75) {
         if (d.end > currentYear * 0.75) {
@@ -284,17 +226,22 @@ d3.csv("logos.csv", type).then(function(data) {
       .attr("class", "timeBand")
       .attr("transform", "translate(500,250)")
       .style("fill-opacity", 0)
-      .attr("d", function(d) {
+      .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
-      //            .attr("x", function (d) {return d.start})
-      //            .attr("y", function (d) {return d.y})
-      //            .attr("height", function (d) {return d.dy})
-      //            .attr("width", function (d) {
-      //
-      //            return d.end - d.start
-      //        })
-      .style("fill", function(d) {
+      // .attr("x", function (d) {
+      //   return d.start;
+      // })
+      // .attr("y", function (d) {
+      //   return d.y;
+      // })
+      // .attr("height", function (d) {
+      //   return d.dy;
+      // })
+      // .attr("width", function (d) {
+      //   return d.end - d.start;
+      // })
+      .style("fill", function (d) {
         if (d.logoStart < currentYear && d.logoEnd > currentYear) {
           return "red";
         } else {
@@ -303,11 +250,11 @@ d3.csv("logos.csv", type).then(function(data) {
       })
       .style("fill-opacity", 1)
 
-      .on("mouseover", function(d) {
+      .on("mouseover", function (d) {
         console.log(d.logoName);
         d3.select(this).style("fill", "teal");
       })
-      .on("mouseout", function(d) {
+      .on("mouseout", function (d) {
         d3.select(this).style("fill", "#b0909d");
       });
 
