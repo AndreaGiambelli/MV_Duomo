@@ -1,34 +1,97 @@
 body {
-    background-color: #00091c;
+  background-color: #00091c;
+  color: white;
 }
 
-#title-wrapper p{
- font-size: 30;
- font-weight: 700;
- color: white
+#title-wrapper p {
+  font-size: 30;
+  font-weight: 700;
+  color: white;
+}
+
+#scrolly {
+  position: relative;
+  /* background: coral; */
+  /* opacity: 0.5; */
+}
+
+#map {
+  top: 50px;
+  position: sticky;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  /* background: red; */
+  -webkit-transform: translate3d(0, 0, 0);
+  -moz-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  z-index: 0;
+}
+
+.scroll-p {
+  position: relative;
+  min-height: 550px;
+  padding: 0 20px;
+  display: grid;
+  grid-template-columns: 75% 25%;
+  /* background: navy;
+  opacity: 0.5; */
+}
+
+#slider {
+  height: 1200px;
+  /* top: 300px;
+position: sticky;
+left: 0;
+width: 100%;
+margin: 0;
+background: red;
+-webkit-transform: translate3d(0, 0, 0);
+-moz-transform: translate3d(0, 0, 0);
+transform: translate3d(0, 0, 0);
+z-index: 0; */
+}
+
+.slider-sticky {
+  position: sticky;
+  top: 600px;
+  left: 0;
+  width: 100%;
+  margin: 0;
+  -webkit-transform: translate3d(0, 0, 0);
+  -moz-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  z-index: 0;
+}
+
+#title-wrapper {
+  /* background: coral; */
+  position: relative;
+  height: 800px;
 }
 
 div.timeline {
-    height: 1000px;
-        width: 1000px;
+  height: 1000px;
+  width: 1000px;
 }
 
 #timelineSvg {
-        height: 1100px;
-        width: 1100px;
-          color: black; 
-          fill: black; 
-      }
+  height: 1100px;
+  width: 1100px;
+  color: black;
+  fill: black;
+}
 
 .hidden {
-    display: none;
+  display: none;
 }
 
 .show {
-    display: block;
+  display: block;
 }
 
-.ticks, .label {
+.ticks,
+.label {
   font: 10px sans-serif;
   fill: white;
 }
@@ -38,7 +101,6 @@ div.timeline {
 .track-overlay {
   stroke-linecap: round;
 }
-
 
 .track {
   stroke: #000;
@@ -66,21 +128,21 @@ div.timeline {
 }
 
 #play-button {
-    vertical-align: top; 
-      top: 140px;
-      left: 50px;
-      background: #f08080;
-      padding-right: 26px;
-      border-radius: 3px;
-      border: none;
-      color: white;
-      margin: 0;
-      padding: 0 12px;
-      width: 60px;
-      cursor: pointer;
-      height: 30px;
-    }
+  vertical-align: top;
+  /* top: 140px; */
+  left: 50px;
+  background: #f08080;
+  padding-right: 26px;
+  border-radius: 3px;
+  border: none;
+  color: white;
+  margin: 0;
+  padding: 0 12px;
+  width: 60px;
+  cursor: pointer;
+  height: 30px;
+}
 
-    #play-button:hover {
-      background-color: #696969;
-    } 
+#play-button:hover {
+  background-color: #696969;
+}

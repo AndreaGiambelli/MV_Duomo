@@ -1,3 +1,5 @@
+let scroller = scrollama();
+
 /// SVG ///
 let margin = { top: 50, right: 50, bottom: 0, left: 50 },
   width = 960 - margin.left - margin.right,
@@ -42,6 +44,7 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
   // Appending date slider
   d3.select("#slider")
     .append("svg")
+    .attr("class", "slider-sticky")
     .attr("width", 1000)
     .attr("height", 100)
     .append("g")
@@ -221,7 +224,7 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
       .attr("y1", -255)
       .attr("x2", 0)
       .attr("y2", -260)
-      .attr("transform", d => `rotate(${angleScale(d)* (180/Math.PI)})`)
+      .attr("transform", (d) => `rotate(${angleScale(d) * (180 / Math.PI)})`)
       .style("stroke", "white");
 
     d3.select("#timelineSvg")
@@ -311,3 +314,16 @@ function type(d) {
 //     .style("fill", "#687a97")
 //     .style("stroke", "black");
 // });
+
+scroller
+  .setup({
+    step: "#scrolly .scroll-p",
+    offset: 0.33,
+    debug: true,
+  })
+  .onStepEnter(handleStepEnter);
+
+function handleStepEnter(response) {
+  console.log(response);
+  // response = { element, direction, index }
+}
