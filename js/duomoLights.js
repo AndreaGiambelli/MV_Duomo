@@ -3,36 +3,31 @@ let margin = { top: 50, right: 50, bottom: 0, left: 50 },
   width = 960 - margin.left - margin.right,
   height = 500 - margin.top - margin.bottom;
 
+// Timeline generator set-up
 let timeline = d3
   .timeline()
-  .size([1500, 200])
+  .size([53, 200])
   .bandStart(function (d) {
     return d.logoStart;
   })
   .bandEnd(function (d) {
     return d.logoEnd;
   })
-  //.dateFormat(function (d) {return parseInt(d)})
+  .dateFormat(function (d) {
+    return parseInt(d);
+  })
   .padding(5)
   .extent([1946, 1999]);
-//.maxBandHeight(4);
 
-d3.csv("logos.csv", type).then(function (data) {
+d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
   let dataset = data;
-  let datasetForFilter = data;
   let groups;
 
-  let svg = d3
-    .select("#vis")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom);
-
-  /// DATE SLIDER ///
+  /// Date slider set-up
   let slider = d3
     .sliderHorizontal()
     .min(1946)
-    .max(2000)
+    .max(1999)
     .step(1)
     .width(width)
     .tickFormat(d3.format(""))
@@ -40,10 +35,11 @@ d3.csv("logos.csv", type).then(function (data) {
     .on("onchange", (val) => {
       d3.select("#value").text(val);
       currentYear = val;
-      updateViz(val);
+      updateProspetto(val);
       radialTimeline();
     });
 
+  // Appending date slider
   d3.select("#slider")
     .append("svg")
     .attr("width", 1000)
@@ -53,7 +49,6 @@ d3.csv("logos.csv", type).then(function (data) {
     .call(slider);
 
   d3.select("#slider").selectAll(".tick").select("line").attr("y2", "4");
-
   d3.select("#slider").selectAll(".tick").select("text").attr("y", "16");
 
   let moving = false;
@@ -88,19 +83,17 @@ d3.csv("logos.csv", type).then(function (data) {
     if (button.text() == "Pause") {
       moving = false;
       clearInterval(timer);
-      // timer = 0;
       button.text("Play");
     } else {
       moving = true;
       timer = setInterval(step, 1000);
       button.text("Pause");
     }
-    // console.log("Animation playing: " + moving);
   });
 
-  let loghi;
+  //////// SVG PROSPETTO ////////
 
-  //////// SVG ////////
+  let loghi;
 
   d3.xml("svg/CARMINATI_REAL_forSVG.svg").then(function (xml) {
     var mw = 1400; // map container width
@@ -146,7 +139,8 @@ d3.csv("logos.csv", type).then(function (data) {
   });
 
   function step() {
-    updateViz(currentYear);
+    updateProspetto(currentYear);
+    radialTimeline();
 
     slider.value(currentYear);
     currentYear = currentYear + 1;
@@ -159,22 +153,12 @@ d3.csv("logos.csv", type).then(function (data) {
     }
   }
 
-  function updateViz(h) {
-    //        if (h > 1970) {
-    //            console.log('hey!')
-    //            d3.selectAll("#Maxell")
-    //                .style('display', 'none');
-    //        } else {
-    //            d3.selectAll("#Maxell")
-    //                .style('display', 'block');
-    //        }
-
+  function updateProspetto(h) {
     groups.style("display", function (d) {
       if (
-        (mapStart.get(this.id) <= currentYear &&
-          mapEnd.get(this.id) >= currentYear) ||
-        (mapStart.get(this.parentNode.id) <= currentYear &&
-          mapEnd.get(this.parentNode.id) >= currentYear)
+        (mapStart.get(this.id) <= h && mapEnd.get(this.id) >= h) ||
+        (mapStart.get(this.parentNode.id) <= h &&
+          mapEnd.get(this.parentNode.id) >= h)
       ) {
         return "block";
       } else {
@@ -184,78 +168,101 @@ d3.csv("logos.csv", type).then(function (data) {
   }
 
   function radialTimeline() {
-    // console.log(currentYear);
+    console.log("inizio funzione" + currentYear);
 
     var arc = d3.arc();
 
-    // datasetForFilter = data.filter(function (d) {
-    //   return d.logoStart < currentYear && d.logoEnd > currentYear;
-    // });
-
     d3.selectAll(".timeBand").remove();
+    d3.selectAll(".timeBand__overlay").remove();
 
-    timelineBands = timeline(datasetForFilter);
+    timelineBands = timeline(dataset);
+    overlayBands = timeline(dataset);
 
     angleScale = d3
       .scaleLinear()
-      .domain([0, 2000])
-      .range([0, 2 * Math.PI]);
-
-    // console.log(angleScale(1946));
+      .domain([0, 53]) // total number of years
+      .range([0, 1.5 * Math.PI]);
 
     timelineBands.forEach(function (d) {
-      d.startAngle = angleScale(d.start);
-      if (d.start < currentYear * 0.75) {
-        if (d.end > currentYear * 0.75) {
-          d.endAngle = angleScale(currentYear * 0.75);
-        } else {
-          d.endAngle = angleScale(d.end);
-        }
-      }
-
+      d.startAngle = angleScale(d.logoStart - 1946);
+      d.endAngle = angleScale(d.logoEnd - 1946);
       d.y = d.y + 50;
     });
 
-    // console.log(timelineBands);
+    overlayBands.forEach(function (d) {
+      d.startAngle = angleScale(d.logoStart - 1946);
+      d.endAngle = angleScale(currentYear - 1946);
+      d.y = d.y + 50;
+    });
+
+    let timelineGrid = d3
+      .select("#timelineSvg")
+      .append("g")
+      .classed(".timeline-grid", "true")
+      .attr("transform", "translate(500,250)");
+
+    // timelineGrid
+    //   .append("circle")
+    //   .attr("cx", 0)
+    //   .attr("cy", 0)
+    //   .attr("r", 250)
+    //   .style("fill", "coral")
+    //   .style("fill-opacity", "0.5");
+
+    const gridData = [4, 14, 24, 34, 44];
+
+    timelineGrid
+      .selectAll(".gridline")
+      .data(gridData)
+      .enter()
+      .append("line")
+      .attr("class", ".gridLine")
+      .attr("x1", 0)
+      .attr("y1", -255)
+      .attr("x2", 0)
+      .attr("y2", -260)
+      .attr("transform", d => `rotate(${angleScale(d)* (180/Math.PI)})`)
+      .style("stroke", "white");
 
     d3.select("#timelineSvg")
-      .selectAll("path")
+      .selectAll(".timeBand")
       .data(timelineBands)
       .enter()
       .append("path")
       .attr("class", "timeBand")
       .attr("transform", "translate(500,250)")
-      .style("fill-opacity", 0)
       .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
-      // .attr("x", function (d) {
-      //   return d.start;
-      // })
-      // .attr("y", function (d) {
-      //   return d.y;
-      // })
-      // .attr("height", function (d) {
-      //   return d.dy;
-      // })
-      // .attr("width", function (d) {
-      //   return d.end - d.start;
-      // })
-      .style("fill", function (d) {
-        if (d.logoStart < currentYear && d.logoEnd > currentYear) {
-          return "red";
-        } else {
-          return "#b0909d";
-        }
-      })
-      .style("fill-opacity", 1)
-
+      .style("fill", "#b0909d")
       .on("mouseover", function (d) {
         console.log(d.logoName);
         d3.select(this).style("fill", "teal");
       })
       .on("mouseout", function (d) {
         d3.select(this).style("fill", "#b0909d");
+      });
+
+    d3.select("#timelineSvg")
+      .selectAll(".timeBand__overlay")
+      .data(overlayBands)
+      .enter()
+      .append("path")
+      .attr("class", "timeBand__overlay")
+      .attr("transform", "translate(500,250)")
+      .attr("d", function (d) {
+        return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
+      })
+      .style("fill", "green")
+      .style("display", (d) => {
+        if (d.logoStart <= currentYear && d.logoEnd >= currentYear) {
+          return "block";
+        } else {
+          return "none";
+        }
+      })
+      .on("mouseover", function (d) {
+        console.log(this);
       });
 
     var size = timelineBands.length;
@@ -269,3 +276,38 @@ function type(d) {
   d.logoEnd = +d.logoEnd;
   return d;
 }
+
+// Horizontal timeline test
+// let timeline2 = d3
+//   .timeline()
+//   .size([600, 200])
+//   .bandStart(function (d) {
+//     return d.logoStart;
+//   })
+//   .bandEnd(function (d) {
+//     return d.logoEnd;
+//   });
+
+// d3.csv("logos_tempNoEmptyValues.csv").then(function (data) {
+//   timelineBands2 = timeline2(data);
+//   ("");
+//   d3.select("#test")
+//     .selectAll("rect")
+//     .data(timelineBands2)
+//     .enter()
+//     .append("rect")
+//     .attr("x", function (d) {
+//       return d.start;
+//     })
+//     .attr("y", function (d) {
+//       return d.y;
+//     })
+//     .attr("height", function (d) {
+//       return d.dy;
+//     })
+//     .attr("width", function (d) {
+//       return d.end - d.start;
+//     })
+//     .style("fill", "#687a97")
+//     .style("stroke", "black");
+// });
