@@ -271,6 +271,35 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
     var size = timelineBands.length;
   }
   radialTimeline();
+
+
+// Set up scrollama
+scroller
+  .setup({
+    step: "#scrolly .scroll-p",
+    offset: 0.75,
+    debug: true,
+  })
+  .onStepEnter(handleStepEnter);
+
+// On step enter
+function handleStepEnter(response) {
+  // response = { element, direction, index }
+  console.log(response);
+
+  if (response.index === 0) {
+    currentYear = 1989; 
+    updateProspetto(currentYear);
+      radialTimeline();
+  }
+  if (response.index === 1) {
+    currentYear = startYear; 
+    updateProspetto(startYear);
+      radialTimeline();
+  }
+
+}
+
 });
 
 function type(d) {
@@ -315,15 +344,4 @@ function type(d) {
 //     .style("stroke", "black");
 // });
 
-scroller
-  .setup({
-    step: "#scrolly .scroll-p",
-    offset: 0.33,
-    debug: true,
-  })
-  .onStepEnter(handleStepEnter);
 
-function handleStepEnter(response) {
-  console.log(response);
-  // response = { element, direction, index }
-}
