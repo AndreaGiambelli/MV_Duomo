@@ -104,8 +104,8 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
     let loghi_svg = d3
       .select("#map")
       .append("svg")
-      .attr("width", mw)
-      .attr("height", mh);
+      .attr("width", "100%")
+      .attr("height", "100%").attr("viewBox", "0 0 " + window.innerWidth + " " + 600);
 
     var svgMap = xml.getElementsByTagName("g")[0];
 
