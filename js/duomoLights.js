@@ -21,9 +21,11 @@ let timeline = d3
   .padding(5)
   .extent([1946, 1999]);
 
-d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
-  let dataset = data;
   let groups;
+
+d3.csv("logos.csv", type).then(function (data) {
+  let dataset = data;
+  
 
   /// Date slider set-up
   let slider = d3
@@ -82,6 +84,7 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
   });
 
   playButton.on("click", function () {
+    console.log("click")
     var button = d3.select(this);
     if (button.text() == "Pause") {
       moving = false;
@@ -98,7 +101,7 @@ d3.csv("logos_tempNoEmptyValues.csv", type).then(function (data) {
 
   let loghi;
 
-  d3.xml("svg/CARMINATI_REAL_forSVG.svg").then(function (xml) {
+  d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg").then(function (xml) {
     var mw = 1400; // map container width
     var mh = 600; // map container height
     let loghi_svg = d3
