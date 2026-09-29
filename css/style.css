@@ -4,15 +4,13 @@ body {
 }
 
 #title-wrapper p {
-  font-size: 30;
+  font-size: 30px;
   font-weight: 700;
   color: white;
 }
 
 #scrolly {
   position: relative;
-  /* background: coral; */
-  /* opacity: 0.5; */
 }
 
 #map {
@@ -21,7 +19,6 @@ body {
   left: 0;
   width: 100%;
   margin: 0;
-  /* background: red; */
   -webkit-transform: translate3d(0, 0, 0);
   -moz-transform: translate3d(0, 0, 0);
   transform: translate3d(0, 0, 0);
@@ -34,22 +31,10 @@ body {
   padding: 0 20px;
   display: grid;
   grid-template-columns: 75% 25%;
-  /* background: navy;
-  opacity: 0.5; */
 }
 
 #slider {
   height: 1200px;
-  /* top: 300px;
-position: sticky;
-left: 0;
-width: 100%;
-margin: 0;
-background: red;
--webkit-transform: translate3d(0, 0, 0);
--moz-transform: translate3d(0, 0, 0);
-transform: translate3d(0, 0, 0);
-z-index: 0; */
 }
 
 .slider-sticky {
@@ -76,14 +61,8 @@ z-index: 0; */
 }
 
 #title-wrapper {
-  /* background: coral; */
   position: relative;
   height: 800px;
-}
-
-div.timeline {
-  height: 1000px;
-  width: 1000px;
 }
 
 #timelineSvg {
@@ -91,14 +70,6 @@ div.timeline {
   width: 1100px;
   color: black;
   fill: black;
-}
-
-.hidden {
-  display: none;
-}
-
-.show {
-  display: block;
 }
 
 .ticks,
@@ -139,9 +110,6 @@ div.timeline {
 }
 
 #play-button {
-  vertical-align: top;
-  /* top: 140px; */
-  left: 50px;
   background: #f08080;
   padding-right: 26px;
   border-radius: 3px;

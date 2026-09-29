@@ -1,14 +1,19 @@
-let scroller = scrollama();
+"use strict";
+
+const scroller = scrollama();
 
 /// SVG ///
-let margin = { top: 50, right: 50, bottom: 0, left: 50 },
-  width = 960 - margin.left - margin.right,
-  height = 500 - margin.top - margin.bottom;
+const margin = { left: 50, right: 50 };
+const width = 960 - margin.left - margin.right;
+
+const YEAR_START = 1946;
+const YEAR_END = 1999;
+const YEAR_SPAN = YEAR_END - YEAR_START;
 
 // Timeline generator set-up
-let timeline = d3
+const timeline = d3
   .timeline()
-  .size([53, 200])
+  .size([YEAR_SPAN, 200])
   .bandStart(function (d) {
     return d.logoStart;
   })
@@ -19,19 +24,18 @@ let timeline = d3
     return parseInt(d);
   })
   .padding(5)
-  .extent([1946, 1999]);
+  .extent([YEAR_START, YEAR_END]);
 
-  let groups;
+let groups;
 
 d3.csv("logos.csv", type).then(function (data) {
-  let dataset = data;
-  
+  const dataset = data;
 
   /// Date slider set-up
-  let slider = d3
+  const slider = d3
     .sliderHorizontal()
-    .min(1946)
-    .max(1999)
+    .min(YEAR_START)
+    .max(YEAR_END)
     .step(1)
     .width(width)
     .tickFormat(d3.format(""))
@@ -57,35 +61,22 @@ d3.csv("logos.csv", type).then(function (data) {
   d3.select("#slider").selectAll(".tick").select("text").attr("y", "16");
 
   let moving = false;
-  // let currentValue = 0;
-  // let targetValue = width;
+  let timer;
   const playButton = d3.select("#play-button");
-  const startYear = 1946;
-  const endYear = 2000;
+  const startYear = YEAR_START;
+  const endYear = 2000; // one year past the data extent, matches the original animation range
   let currentYear = startYear;
-  const numberOfSteps = endYear - startYear + 1;
-  const yearWidth = Math.round(width / numberOfSteps);
 
-  // Create array of pixel values for each year
-  const range = d3.range(55).map((d) => d * yearWidth);
+  const mapStart = new Map();
+  const mapEnd = new Map();
 
-  // Quantize scale from year to pixels
-  var xq = d3.scaleQuantize().domain([startYear, endYear]).range(range);
-
-  var mapStart = d3.map();
-  var mapEnd = d3.map();
-
-  d3.map(dataset, function (d) {
+  dataset.forEach(function (d) {
     mapStart.set(d.logoName, +d.logoStart);
-  });
-
-  d3.map(dataset, function (d) {
     mapEnd.set(d.logoName, +d.logoEnd);
   });
 
   playButton.on("click", function () {
-    console.log("click")
-    var button = d3.select(this);
+    const button = d3.select(this);
     if (button.text() == "Pause") {
       moving = false;
       clearInterval(timer);
@@ -99,36 +90,19 @@ d3.csv("logos.csv", type).then(function (data) {
 
   //////// SVG PROSPETTO ////////
 
-  let loghi;
-
   d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg").then(function (xml) {
-    var mw = 1400; // map container width
-    var mh = 600; // map container height
-    let loghi_svg = d3
+    const mapHeight = 600;
+    const loghiSvg = d3
       .select("#map")
       .append("svg")
       .attr("width", "100%")
-      .attr("height", "100%").attr("viewBox", "0 0 " + window.innerWidth + " " + 600);
+      .attr("height", "100%")
+      .attr("viewBox", "0 0 " + window.innerWidth + " " + mapHeight);
 
-    var svgMap = xml.getElementsByTagName("g")[0];
+    const svgMap = xml.getElementsByTagName("g")[0];
 
-    loghi = loghi_svg.node().appendChild(svgMap);
+    loghiSvg.node().appendChild(svgMap);
     groups = d3.select("#Logos").selectAll("g");
-
-    /// TESTS FOR SCATTERPLOT
-    // groups
-    // .attr('transform', function (d, i) {
-
-    //         return `translate (${i*50}, ${i*20})`
-    //     })
-    // .attr('transform', function (d) {
-    //     const start = mapStart.get(this.id)
-    //     const end = mapEnd.get(this.id)
-    //     const string = `translate (${start/10}, ${end/10})`
-    //     console.log(string)
-    //     return string;
-    // })
-    // .style('display', 'block')
 
     groups.style("display", function (d) {
       if (
@@ -173,47 +147,42 @@ d3.csv("logos.csv", type).then(function (data) {
     });
   }
 
-  function radialTimeline() {
-    console.log("inizio funzione" + currentYear);
+  const timelineCenter = { x: 500, y: 250 };
 
-    var arc = d3.arc();
+  function radialTimeline() {
+    const arc = d3.arc();
 
     d3.selectAll(".timeBand").remove();
     d3.selectAll(".timeBand__overlay").remove();
 
-    timelineBands = timeline(dataset);
-    overlayBands = timeline(dataset);
+    const timelineBands = timeline(dataset);
+    const overlayBands = timeline(dataset);
 
-    angleScale = d3
+    const angleScale = d3
       .scaleLinear()
-      .domain([0, 53]) // total number of years
+      .domain([0, YEAR_SPAN])
       .range([0, 1.5 * Math.PI]);
 
     timelineBands.forEach(function (d) {
-      d.startAngle = angleScale(d.logoStart - 1946);
-      d.endAngle = angleScale(d.logoEnd - 1946);
+      d.startAngle = angleScale(d.logoStart - YEAR_START);
+      d.endAngle = angleScale(d.logoEnd - YEAR_START);
       d.y = d.y + 50;
     });
 
     overlayBands.forEach(function (d) {
-      d.startAngle = angleScale(d.logoStart - 1946);
-      d.endAngle = angleScale(currentYear - 1946);
+      d.startAngle = angleScale(d.logoStart - YEAR_START);
+      d.endAngle = angleScale(currentYear - YEAR_START);
       d.y = d.y + 50;
     });
 
-    let timelineGrid = d3
+    const timelineGrid = d3
       .select("#timelineSvg")
       .append("g")
-      .classed(".timeline-grid", "true")
-      .attr("transform", "translate(500,250)");
-
-    // timelineGrid
-    //   .append("circle")
-    //   .attr("cx", 0)
-    //   .attr("cy", 0)
-    //   .attr("r", 250)
-    //   .style("fill", "coral")
-    //   .style("fill-opacity", "0.5");
+      .classed("timeline-grid", true)
+      .attr(
+        "transform",
+        `translate(${timelineCenter.x},${timelineCenter.y})`
+      );
 
     const gridData = [4, 14, 24, 34, 44];
 
@@ -222,7 +191,7 @@ d3.csv("logos.csv", type).then(function (data) {
       .data(gridData)
       .enter()
       .append("line")
-      .attr("class", ".gridLine")
+      .attr("class", "gridLine")
       .attr("x1", 0)
       .attr("y1", -255)
       .attr("x2", 0)
@@ -236,16 +205,15 @@ d3.csv("logos.csv", type).then(function (data) {
       .enter()
       .append("path")
       .attr("class", "timeBand")
-      .attr("transform", "translate(500,250)")
+      .attr("transform", `translate(${timelineCenter.x},${timelineCenter.y})`)
       .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
       .style("fill", "#b0909d")
-      .on("mouseover", function (d) {
-        console.log(d.logoName);
+      .on("mouseover", function () {
         d3.select(this).style("fill", "teal");
       })
-      .on("mouseout", function (d) {
+      .on("mouseout", function () {
         d3.select(this).style("fill", "#b0909d");
       });
 
@@ -255,7 +223,7 @@ d3.csv("logos.csv", type).then(function (data) {
       .enter()
       .append("path")
       .attr("class", "timeBand__overlay")
-      .attr("transform", "translate(500,250)")
+      .attr("transform", `translate(${timelineCenter.x},${timelineCenter.y})`)
       .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
@@ -266,84 +234,35 @@ d3.csv("logos.csv", type).then(function (data) {
         } else {
           return "none";
         }
-      })
-      .on("mouseover", function (d) {
-        console.log(this);
       });
-
-    var size = timelineBands.length;
   }
   radialTimeline();
 
+  // Set up scrollama
+  scroller
+    .setup({
+      step: "#scrolly .scroll-p",
+      offset: 0.75,
+    })
+    .onStepEnter(handleStepEnter);
 
-// Set up scrollama
-scroller
-  .setup({
-    step: "#scrolly .scroll-p",
-    offset: 0.75,
-  })
-  .onStepEnter(handleStepEnter);
-
-// On step enter
-function handleStepEnter(response) {
-  // response = { element, direction, index }
-  console.log(response);
-
-  if (response.index === 0) {
-    currentYear = 1989; 
-    updateProspetto(currentYear);
+  // On step enter
+  function handleStepEnter(response) {
+    if (response.index === 0) {
+      currentYear = 1989;
+      updateProspetto(currentYear);
       radialTimeline();
-  }
-  if (response.index === 1) {
-    currentYear = startYear; 
-    updateProspetto(startYear);
+    }
+    if (response.index === 1) {
+      currentYear = startYear;
+      updateProspetto(startYear);
       radialTimeline();
+    }
   }
-
-}
-
 });
 
 function type(d) {
-  d.logoName = d.logoName;
   d.logoStart = +d.logoStart;
   d.logoEnd = +d.logoEnd;
   return d;
 }
-
-// Horizontal timeline test
-// let timeline2 = d3
-//   .timeline()
-//   .size([600, 200])
-//   .bandStart(function (d) {
-//     return d.logoStart;
-//   })
-//   .bandEnd(function (d) {
-//     return d.logoEnd;
-//   });
-
-// d3.csv("logos_tempNoEmptyValues.csv").then(function (data) {
-//   timelineBands2 = timeline2(data);
-//   ("");
-//   d3.select("#test")
-//     .selectAll("rect")
-//     .data(timelineBands2)
-//     .enter()
-//     .append("rect")
-//     .attr("x", function (d) {
-//       return d.start;
-//     })
-//     .attr("y", function (d) {
-//       return d.y;
-//     })
-//     .attr("height", function (d) {
-//       return d.dy;
-//     })
-//     .attr("width", function (d) {
-//       return d.end - d.start;
-//     })
-//     .style("fill", "#687a97")
-//     .style("stroke", "black");
-// });
-
-
