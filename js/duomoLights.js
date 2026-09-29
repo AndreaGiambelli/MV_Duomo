@@ -46,7 +46,7 @@ d3.csv("logos.csv", type).then(function (data) {
   // Appending date slider
   d3.select("#slider")
     .append("svg")
-    .attr("class", "slider-sticky")
+    .attr("class", "slider-svg")
     .attr("width", 1000)
     .attr("height", 100)
     .append("g")
@@ -281,7 +281,6 @@ scroller
   .setup({
     step: "#scrolly .scroll-p",
     offset: 0.75,
-    debug: true,
   })
   .onStepEnter(handleStepEnter);
 
