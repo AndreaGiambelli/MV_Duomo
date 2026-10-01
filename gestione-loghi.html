@@ -561,7 +561,13 @@ function showTable() {
 async function loadData() {
   showState("Caricamento di logos.csv e dell'SVG…", false);
   try {
-    const [csvRes, svgRes] = await Promise.all([fetch(CSV_PATH), fetch(SVG_PATH)]);
+    // cache: "no-store" + a cache-busting query param, so a page that exists
+    // specifically to show "right now" never silently serves a stale fetch.
+    const bust = `?t=${Date.now()}`;
+    const [csvRes, svgRes] = await Promise.all([
+      fetch(CSV_PATH + bust, { cache: "no-store" }),
+      fetch(SVG_PATH + bust, { cache: "no-store" }),
+    ]);
     if (!csvRes.ok) throw new Error(`${CSV_PATH} non trovato (HTTP ${csvRes.status})`);
     if (!svgRes.ok) throw new Error(`${SVG_PATH} non trovato (HTTP ${svgRes.status})`);
 
