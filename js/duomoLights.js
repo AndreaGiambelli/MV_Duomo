@@ -10,6 +10,12 @@ const YEAR_START = 1946;
 const YEAR_END = 1999;
 const YEAR_SPAN = YEAR_END - YEAR_START;
 
+// CSV logoName and SVG data-logo values are matched as free text, so both
+// sides are normalized the same way before being compared or used as a Map key.
+function normalizeLogoKey(value) {
+  return (value || "").trim().toLowerCase();
+}
+
 // Timeline generator set-up
 const timeline = d3
   .timeline()
@@ -71,8 +77,9 @@ d3.csv("logos.csv", type).then(function (data) {
   const mapEnd = new Map();
 
   dataset.forEach(function (d) {
-    mapStart.set(d.logoName, +d.logoStart);
-    mapEnd.set(d.logoName, +d.logoEnd);
+    const key = normalizeLogoKey(d.logoName);
+    mapStart.set(key, +d.logoStart);
+    mapEnd.set(key, +d.logoEnd);
   });
 
   playButton.on("click", function () {
@@ -102,21 +109,39 @@ d3.csv("logos.csv", type).then(function (data) {
     const svgMap = xml.getElementsByTagName("g")[0];
 
     loghiSvg.node().appendChild(svgMap);
-    groups = d3.select("#Logos").selectAll("g");
+    groups = d3.select("#Logos").selectAll("[data-logo]");
 
-    groups.style("display", function (d) {
-      if (
-        (mapStart.get(this.id) <= currentYear &&
-          mapEnd.get(this.id) >= currentYear) ||
-        (mapStart.get(this.parentNode.id) <= currentYear &&
-          mapEnd.get(this.parentNode.id) >= currentYear)
-      ) {
-        return "block";
-      } else {
-        return "none";
-      }
+    warnAboutUnmatchedLogos(dataset, groups);
+
+    groups.style("display", function () {
+      const key = normalizeLogoKey(this.dataset.logo);
+      return mapStart.get(key) <= currentYear && mapEnd.get(key) >= currentYear
+        ? "block"
+        : "none";
     });
   });
+
+  // Surfaces mismatches between the CSV and the artwork instead of letting
+  // them fail silently as a permanently hidden element.
+  function warnAboutUnmatchedLogos(dataset, svgGroups) {
+    const svgKeys = new Set(
+      svgGroups.nodes().map((node) => normalizeLogoKey(node.dataset.logo))
+    );
+    const csvKeys = new Set(dataset.map((d) => normalizeLogoKey(d.logoName)));
+
+    for (const d of dataset) {
+      const key = normalizeLogoKey(d.logoName);
+      if (!svgKeys.has(key)) {
+        console.warn(`[duomoLights] "${d.logoName}" è nel CSV ma nessun nodo SVG ha data-logo="${key}"`);
+      }
+    }
+    svgGroups.each(function () {
+      const key = normalizeLogoKey(this.dataset.logo);
+      if (!csvKeys.has(key)) {
+        console.warn(`[duomoLights] il nodo SVG con data-logo="${this.dataset.logo}" non ha nessuna riga corrispondente in logos.csv`);
+      }
+    });
+  }
 
   function step() {
     updateProspetto(currentYear);
@@ -134,16 +159,9 @@ d3.csv("logos.csv", type).then(function (data) {
   }
 
   function updateProspetto(h) {
-    groups.style("display", function (d) {
-      if (
-        (mapStart.get(this.id) <= h && mapEnd.get(this.id) >= h) ||
-        (mapStart.get(this.parentNode.id) <= h &&
-          mapEnd.get(this.parentNode.id) >= h)
-      ) {
-        return "block";
-      } else {
-        return "none";
-      }
+    groups.style("display", function () {
+      const key = normalizeLogoKey(this.dataset.logo);
+      return mapStart.get(key) <= h && mapEnd.get(key) >= h ? "block" : "none";
     });
   }
 
