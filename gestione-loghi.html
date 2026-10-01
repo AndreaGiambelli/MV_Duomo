@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Gestione loghi — Duomo Lights</title>
+<style>
+  :root {
+    --bg: #0a0f22;
+    --surface: #121a38;
+    --surface-2: #182352;
+    --border: #2b3666;
+    --text: #edf0fa;
+    --text-muted: #8d96c0;
+    --text-faint: #5c6694;
+    --accent: #c9a15a;
+    --good: #7fc29a;
+    --good-soft: #7fc29a1f;
+    --bad: #e8795c;
+    --bad-soft: #e8795c1f;
+    --orphan: #7fb6c9;
+    --orphan-soft: #7fb6c91f;
+    --warn: #e0b64e;
+    --warn-soft: #e0b64e1f;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px 24px 80px; }
+
+  header.page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 13.5px;
+    max-width: 56ch;
+  }
+
+  .subtitle code {
+    font-family: var(--mono);
+    font-size: 0.93em;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.05em 0.4em;
+  }
+
+  button.reload {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 16px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  button.reload:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---- stats ---- */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 16px 18px;
+    cursor: pointer;
+    user-select: none;
+    border-left: 3px solid transparent;
+  }
+  .stat:hover { background: var(--surface-2); }
+  .stat.active { border-left-color: var(--stat-color, var(--accent)); background: var(--surface-2); }
+  .stat-num {
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 24px;
+    font-variant-numeric: tabular-nums;
+    color: var(--stat-color, var(--text));
+  }
+  .stat-label { color: var(--text-muted); font-size: 12px; margin-top: 4px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ---- controls ---- */
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  input.search {
+    flex: 1;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    padding: 9px 12px;
+    border-radius: 7px;
+  }
+  input.search:focus { outline: none; border-color: var(--accent); }
+  input.search::placeholder { color: var(--text-faint); }
+
+  .count-note { color: var(--text-faint); font-size: 12.5px; font-family: var(--mono); white-space: nowrap; }
+
+  /* ---- table ---- */
+  .table-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 880px; }
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-2);
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+    font-weight: 600;
+    padding: 11px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--border);
+  }
+  thead th:hover { color: var(--text); }
+  thead th.sorted { color: var(--accent); }
+  thead th .arrow { font-size: 9px; margin-left: 3px; opacity: 0.8; }
+  thead th:focus-visible,
+  .stat:focus-visible,
+  .copy-btn:focus-visible,
+  button.reload:focus-visible,
+  input.search:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    vertical-align: middle;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface-2); }
+
+  td.name-cell { font-weight: 600; }
+  .name-row { display: flex; align-items: center; gap: 8px; }
+  .copy-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  tr:hover .copy-btn { opacity: 1; }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .copy-btn.copied { color: var(--good); border-color: var(--good); opacity: 1; }
+
+  td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text-muted); }
+  td.meta { color: var(--text-muted); font-size: 13px; }
+  td.meta.empty { color: var(--text-faint); font-style: italic; }
+
+  .mark { font-family: var(--mono); font-size: 13px; }
+  .mark.yes { color: var(--good); }
+  .mark.no { color: var(--text-faint); }
+  .parts { color: var(--text-faint); font-size: 11.5px; margin-left: 4px; }
+
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .pill.completo { color: var(--good); background: var(--good-soft); }
+  .pill.manca-svg { color: var(--bad); background: var(--bad-soft); }
+  .pill.manca-csv { color: var(--orphan); background: var(--orphan-soft); }
+  .pill.incompleto { color: var(--warn); background: var(--warn-soft); }
+
+  .state-msg {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--text-muted);
+  }
+  .state-msg.error { color: var(--bad); }
+  .state-msg code {
+    font-family: var(--mono);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.1em 0.5em;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page-head">
+    <div>
+      <h1>Gestione loghi — Duomo Lights</h1>
+      <div class="subtitle">
+        Unione di tutti i nomi presenti in <code>logos.csv</code> o nell'SVG (attributo <code>data-logo</code>),
+        letta in diretta ad ogni caricamento: è lo stato reale dei file in questo momento, non uno scatto fisso.
+      </div>
+    </div>
+    <button class="reload" onclick="loadData()">↻ Ricarica dati</button>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <input class="search" id="search" type="text" placeholder="Cerca per nome…" />
+    <span class="count-note" id="countNote"></span>
+  </div>
+
+  <div class="table-scroll">
+    <table id="table">
+      <thead>
+        <tr>
+          <th data-key="name" tabindex="0" role="button" aria-label="Ordina per nome">Nome<span class="arrow"></span></th>
+          <th data-key="start" tabindex="0" role="button" aria-label="Ordina per data inizio">Data inizio<span class="arrow"></span></th>
+          <th data-key="end" tabindex="0" role="button" aria-label="Ordina per data fine">Data fine<span class="arrow"></span></th>
+          <th data-key="inSVG" tabindex="0" role="button" aria-label="Ordina per SVG disegnato">SVG disegnato<span class="arrow"></span></th>
+          <th data-key="csvOk" tabindex="0" role="button" aria-label="Ordina per CSV a posto">CSV a posto<span class="arrow"></span></th>
+          <th data-key="categoria" tabindex="0" role="button" aria-label="Ordina per categoria">Categoria<span class="arrow"></span></th>
+          <th data-key="provenienza" tabindex="0" role="button" aria-label="Ordina per provenienza">Provenienza<span class="arrow"></span></th>
+          <th data-key="status" tabindex="0" role="button" aria-label="Ordina per stato">Stato<span class="arrow"></span></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="state-msg hidden" id="stateMsg"></div>
+
+</div>
+
+<script>
+const CSV_PATH = "logos.csv";
+const SVG_PATH = "svg/CARMINATI_REAL_forSVG copy_210213.svg";
+
+const STATUS_META = {
+  "completo":   { label: "Completo",        color: "var(--good)" },
+  "manca-svg":  { label: "Manca disegno",   color: "var(--bad)" },
+  "manca-csv":  { label: "Manca dati CSV",  color: "var(--orphan)" },
+  "incompleto": { label: "Dati incompleti", color: "var(--warn)" },
+};
+
+let records = [];
+let sortKey = "status";
+let sortDir = 1;
+let activeFilter = "all";
+let searchTerm = "";
+
+function normalizeKey(value) {
+  return (value || "").trim().toLowerCase();
+}
+
+function splitCSVLine(line) {
+  const out = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++; } else { inQuotes = false; }
+      } else cur += c;
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ",") { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const lines = text.split(/\r\n|\n/).filter((l) => l.length > 0);
+  if (lines.length === 0) return [];
+  const headers = splitCSVLine(lines[0]).map((h) => h.trim());
+  return lines.slice(1).map((line) => {
+    const cells = splitCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => (obj[h] = (cells[i] || "").trim()));
+    return obj;
+  });
+}
+
+function buildRecords(csvRows, svgNodes) {
+  const csvByKey = new Map();
+  csvRows.forEach((row) => {
+    if (row.logoName) csvByKey.set(normalizeKey(row.logoName), row);
+  });
+
+  const svgByKey = new Map();
+  svgNodes.forEach((node) => {
+    const raw = node.getAttribute("data-logo");
+    if (!raw) return;
+    const key = normalizeKey(raw);
+    if (!svgByKey.has(key)) svgByKey.set(key, { rawName: raw, count: 0 });
+    svgByKey.get(key).count++;
+  });
+
+  const allKeys = new Set([...csvByKey.keys(), ...svgByKey.keys()]);
+
+  return [...allKeys].map((key) => {
+    const csv = csvByKey.get(key);
+    const svg = svgByKey.get(key);
+
+    const name = csv ? csv.logoName : svg.rawName;
+    const start = csv ? csv.logoStart : "";
+    const end = csv ? csv.logoEnd : "";
+    const startNum = +start;
+    const endNum = +end;
+    const datesValid =
+      start !== "" && end !== "" && !isNaN(startNum) && !isNaN(endNum) && startNum <= endNum;
+
+    const inCSV = !!csv;
+    const inSVG = !!svg;
+    const csvOk = inCSV && datesValid;
+
+    let status;
+    if (inCSV && !datesValid) status = "incompleto";
+    else if (inCSV && inSVG) status = "completo";
+    else if (inCSV && !inSVG) status = "manca-svg";
+    else status = "manca-csv";
+
+    return {
+      key,
+      name,
+      start,
+      end,
+      inCSV,
+      inSVG,
+      csvOk,
+      svgParts: svg ? svg.count : 0,
+      categoria: csv ? csv.categoria || "" : "",
+      provenienza: csv ? csv.provenienza || "" : "",
+      status,
+    };
+  });
+}
+
+function renderStats() {
+  const counts = { all: records.length, "manca-svg": 0, "manca-csv": 0, incompleto: 0, completo: 0 };
+  records.forEach((r) => counts[r.status]++);
+
+  const tiles = [
+    { key: "all", label: "Totale nomi", color: "var(--text)", num: counts.all },
+    { key: "manca-svg", label: "Manca disegno SVG", color: "var(--bad)", num: counts["manca-svg"] },
+    { key: "manca-csv", label: "Manca riga CSV", color: "var(--orphan)", num: counts["manca-csv"] },
+    { key: "completo", label: "Completi", color: "var(--good)", num: counts.completo },
+  ];
+
+  const el = document.getElementById("stats");
+  el.innerHTML = tiles
+    .map(
+      (t) => `
+      <div class="stat ${activeFilter === t.key ? "active" : ""}" style="--stat-color:${t.color}" data-filter="${t.key}"
+           tabindex="0" role="button" aria-pressed="${activeFilter === t.key}" aria-label="Filtra: ${t.label}">
+        <div class="stat-num">${t.num}</div>
+        <div class="stat-label">${t.label}</div>
+      </div>`
+    )
+    .join("");
+
+  el.querySelectorAll(".stat").forEach((node) => {
+    node.addEventListener("click", () => {
+      activeFilter = node.dataset.filter;
+      render();
+    });
+    node.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        activeFilter = node.dataset.filter;
+        render();
+      }
+    });
+  });
+}
+
+function sortRecords(list) {
+  const dir = sortDir;
+  return [...list].sort((a, b) => {
+    let av, bv;
+    switch (sortKey) {
+      case "start":
+        av = +a.start || -Infinity; bv = +b.start || -Infinity; break;
+      case "end":
+        av = +a.end || -Infinity; bv = +b.end || -Infinity; break;
+      case "inSVG":
+        av = a.inSVG ? 1 : 0; bv = b.inSVG ? 1 : 0; break;
+      case "csvOk":
+        av = a.csvOk ? 1 : 0; bv = b.csvOk ? 1 : 0; break;
+      case "categoria":
+        av = a.categoria.toLowerCase(); bv = b.categoria.toLowerCase(); break;
+      case "provenienza":
+        av = a.provenienza.toLowerCase(); bv = b.provenienza.toLowerCase(); break;
+      case "status":
+        av = a.status; bv = b.status; break;
+      default:
+        av = a.name.toLowerCase(); bv = b.name.toLowerCase();
+    }
+    if (av < bv) return -1 * dir;
+    if (av > bv) return 1 * dir;
+    return a.name.localeCompare(b.name) * dir;
+  });
+}
+
+const STATUS_SORT_ORDER = { "manca-svg": 0, "incompleto": 1, "manca-csv": 2, "completo": 3 };
+
+function render() {
+  renderStats();
+
+  let list = records;
+  if (activeFilter !== "all") list = list.filter((r) => r.status === activeFilter);
+  if (searchTerm) list = list.filter((r) => r.name.toLowerCase().includes(searchTerm));
+
+  if (sortKey === "status") {
+    list = [...list].sort((a, b) => {
+      const d = (STATUS_SORT_ORDER[a.status] - STATUS_SORT_ORDER[b.status]) * sortDir;
+      return d !== 0 ? d : a.name.localeCompare(b.name);
+    });
+  } else {
+    list = sortRecords(list);
+  }
+
+  document.getElementById("countNote").textContent = `${list.length} di ${records.length} righe`;
+
+  document.querySelectorAll("thead th").forEach((th) => {
+    th.classList.toggle("sorted", th.dataset.key === sortKey);
+    th.querySelector(".arrow").textContent =
+      th.dataset.key === sortKey ? (sortDir === 1 ? "▲" : "▼") : "";
+  });
+
+  const tbody = document.getElementById("tbody");
+  tbody.innerHTML = list
+    .map((r) => {
+      const meta = STATUS_META[r.status];
+      const svgMark = r.inSVG
+        ? `<span class="mark yes">✓</span>${r.svgParts > 1 ? `<span class="parts">×${r.svgParts}</span>` : ""}`
+        : `<span class="mark no">—</span>`;
+      const csvMark = r.csvOk
+        ? `<span class="mark yes">✓</span>`
+        : `<span class="mark no">—</span>`;
+      const catCell = r.categoria
+        ? `<td class="meta">${escapeHTML(r.categoria)}</td>`
+        : `<td class="meta empty">vuota</td>`;
+      const provCell = r.provenienza
+        ? `<td class="meta">${escapeHTML(r.provenienza)}</td>`
+        : `<td class="meta empty">vuota</td>`;
+
+      return `
+      <tr>
+        <td class="name-cell">
+          <span class="name-row">
+            ${escapeHTML(r.name)}
+            <button class="copy-btn" data-copy="${escapeHTML(r.name)}" title="Copia il nome">copia</button>
+          </span>
+        </td>
+        <td class="num">${r.start || "—"}</td>
+        <td class="num">${r.end || "—"}</td>
+        <td>${svgMark}</td>
+        <td>${csvMark}</td>
+        ${catCell}
+        ${provCell}
+        <td><span class="pill ${r.status}">${meta.label}</span></td>
+      </tr>`;
+    })
+    .join("");
+
+  tbody.querySelectorAll(".copy-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        const original = btn.textContent;
+        btn.textContent = "fatto";
+        btn.classList.add("copied");
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.classList.remove("copied");
+        }, 1000);
+      } catch (e) {
+        /* clipboard unavailable, ignore */
+      }
+    });
+  });
+}
+
+function escapeHTML(str) {
+  const div = document.createElement("div");
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function showState(message, isError) {
+  const el = document.getElementById("stateMsg");
+  el.innerHTML = message;
+  el.classList.remove("hidden");
+  el.classList.toggle("error", !!isError);
+  document.querySelector(".table-scroll").classList.toggle("hidden", true);
+  document.getElementById("stats").classList.toggle("hidden", true);
+  document.querySelector(".controls").classList.toggle("hidden", true);
+}
+
+function showTable() {
+  document.getElementById("stateMsg").classList.add("hidden");
+  document.querySelector(".table-scroll").classList.remove("hidden");
+  document.getElementById("stats").classList.remove("hidden");
+  document.querySelector(".controls").classList.remove("hidden");
+}
+
+async function loadData() {
+  showState("Caricamento di logos.csv e dell'SVG…", false);
+  try {
+    const [csvRes, svgRes] = await Promise.all([fetch(CSV_PATH), fetch(SVG_PATH)]);
+    if (!csvRes.ok) throw new Error(`${CSV_PATH} non trovato (HTTP ${csvRes.status})`);
+    if (!svgRes.ok) throw new Error(`${SVG_PATH} non trovato (HTTP ${svgRes.status})`);
+
+    const [csvText, svgText] = await Promise.all([csvRes.text(), svgRes.text()]);
+    const csvRows = parseCSV(csvText);
+    const svgDoc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const parserError = svgDoc.querySelector("parsererror");
+    if (parserError) throw new Error("L'SVG non si è lasciato analizzare (XML non valido).");
+
+    const svgNodes = Array.from(svgDoc.querySelectorAll("[data-logo]"));
+    records = buildRecords(csvRows, svgNodes);
+    showTable();
+    render();
+  } catch (err) {
+    showState(
+      `Impossibile caricare i dati: <code>${escapeHTML(err.message)}</code><br><br>` +
+        `Questa pagina legge i file con <code>fetch()</code>, quindi va aperta tramite un server locale ` +
+        `(es. <code>python3 -m http.server</code> dentro la cartella del progetto), non come file aperto direttamente nel browser.`,
+      true
+    );
+  }
+}
+
+document.getElementById("search").addEventListener("input", (e) => {
+  searchTerm = e.target.value.trim().toLowerCase();
+  render();
+});
+
+document.querySelectorAll("thead th").forEach((th) => {
+  const applySort = () => {
+    const key = th.dataset.key;
+    if (sortKey === key) sortDir *= -1;
+    else { sortKey = key; sortDir = 1; }
+    render();
+  };
+  th.addEventListener("click", applySort);
+  th.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      applySort();
+    }
+  });
+});
+
+loadData();
+</script>
+</body>
+</html>
