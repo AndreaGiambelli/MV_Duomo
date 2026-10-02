@@ -6,7 +6,7 @@ const scroller = scrollama();
 const margin = { left: 50, right: 50 };
 const width = 960 - margin.left - margin.right;
 
-const YEAR_START = 1946;
+const YEAR_START = 1945;
 const YEAR_END = 1999;
 const YEAR_SPAN = YEAR_END - YEAR_START;
 
@@ -90,7 +90,7 @@ d3.csv("logos.csv", type).then(function (data) {
       button.text("Play");
     } else {
       moving = true;
-      timer = setInterval(step, 1000);
+      timer = setInterval(step, 3500);
       button.text("Pause");
     }
   });
