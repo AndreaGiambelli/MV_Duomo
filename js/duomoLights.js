@@ -109,6 +109,7 @@ d3.csv("logos.csv", type).then(function (data) {
     const svgMap = xml.getElementsByTagName("g")[0];
 
     loghiSvg.node().appendChild(svgMap);
+    applyNeonGlow(svgMap.querySelector("#Logos"));
     groups = d3.select("#Logos").selectAll("[data-logo]");
 
     warnAboutUnmatchedLogos(dataset, groups);
@@ -141,6 +142,52 @@ d3.csv("logos.csv", type).then(function (data) {
         console.warn(`[duomoLights] il nodo SVG con data-logo="${this.dataset.logo}" non ha nessuna riga corrispondente in logos.csv`);
       }
     });
+  }
+
+  // Gives each logo a neon-style glow in its own accent color, derived from
+  // the artwork itself (the most common non-neutral fill/stroke in it) so
+  // every logo stays coherent without being colored by hand. Only applied to
+  // the direct children of #Logos, so a multi-part logo glows as one shape
+  // rather than once per part. A randomized flicker delay keeps logos from
+  // pulsing in sync, like independent neon tubes.
+  function applyNeonGlow(logosGroup) {
+    if (!logosGroup) return;
+    Array.from(logosGroup.children).forEach((group) => {
+      if (group.tagName !== "g" || !group.dataset.logo) return;
+      const color = pickAccentColor(group);
+      if (color) group.style.setProperty("--glow-color", color);
+      group.style.setProperty("--flicker-delay", `${(-Math.random() * 6).toFixed(2)}s`);
+    });
+  }
+
+  function pickAccentColor(group) {
+    const counts = new Map();
+    group.querySelectorAll("*").forEach((el) => {
+      ["fill", "stroke"].forEach((attr) => {
+        const value = el.getAttribute(attr);
+        if (!value || value === "none" || isNeutralColor(value)) return;
+        counts.set(value, (counts.get(value) || 0) + 1);
+      });
+    });
+    if (counts.size === 0) return null;
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+  }
+
+  function isNeutralColor(hex) {
+    const h = hex.replace("#", "").toLowerCase();
+    if (!/^[0-9a-f]{3}$|^[0-9a-f]{6}$/.test(h)) return true;
+    const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    const r = parseInt(full.slice(0, 2), 16);
+    const g = parseInt(full.slice(2, 4), 16);
+    const b = parseInt(full.slice(4, 6), 16);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    // near-white, near-black, and low-saturation greys aren't accent colors
+    if (max > 235 && min > 200) return true;
+    if (max < 45) return true;
+    if (saturation < 0.12) return true;
+    return false;
   }
 
   function step() {
