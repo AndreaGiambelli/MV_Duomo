@@ -25,6 +25,21 @@ body {
   z-index: 0;
 }
 
+#year-display {
+  position: absolute;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
 #Logos > [data-logo] {
   filter: drop-shadow(0 0 1px var(--glow-color, #fff))
     drop-shadow(0 0 3px var(--glow-color, #fff))

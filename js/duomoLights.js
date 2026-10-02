@@ -47,7 +47,6 @@ d3.csv("logos.csv", type).then(function (data) {
     .tickFormat(d3.format(""))
     .displayValue(false)
     .on("onchange", (val) => {
-      d3.select("#value").text(val);
       currentYear = val;
       updateProspetto(val);
       radialTimeline();
@@ -206,6 +205,8 @@ d3.csv("logos.csv", type).then(function (data) {
   }
 
   function updateProspetto(h) {
+    d3.select("#value").text(h);
+    d3.select("#year-display").text(h);
     groups.style("display", function () {
       const key = normalizeLogoKey(this.dataset.logo);
       return mapStart.get(key) <= h && mapEnd.get(key) >= h ? "block" : "none";
