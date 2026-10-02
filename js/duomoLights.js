@@ -156,7 +156,7 @@ d3.csv("logos.csv", type).then(function (data) {
       if (group.tagName !== "g" || !group.dataset.logo) return;
       const color = pickAccentColor(group);
       if (color) group.style.setProperty("--glow-color", color);
-      group.style.setProperty("--flicker-delay", `${(-Math.random() * 6).toFixed(2)}s`);
+      group.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
     });
   }
 
