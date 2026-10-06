@@ -110,6 +110,18 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       .attr("height", "100%")
       .attr("viewBox", "0 0 " + window.innerWidth + " " + mapHeight);
 
+    // fill (and other presentation attributes) on the source file's root
+    // <svg> are inherited by every path that doesn't set its own -- moving
+    // only the inner <g> into our wrapper drops that inheritance, so paths
+    // meant to be unfilled (fill:none, e.g. outline-only shapes) fall back
+    // to SVG's true default fill, black. Carry the root's own attributes
+    // over so the same cascade applies here.
+    const sourceRoot = xml.documentElement;
+    ["fill", "stroke", "color"].forEach((attr) => {
+      const value = sourceRoot.getAttribute(attr);
+      if (value !== null) loghiSvg.attr(attr, value);
+    });
+
     const svgMap = xml.getElementsByTagName("g")[0];
     // <defs> (gradients, clip-paths) can sit as a sibling of the main <g>
     // rather than inside it -- grab it too, or every url(#...) reference
