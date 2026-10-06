@@ -34,7 +34,12 @@ const timeline = d3
 
 let groups;
 
-d3.csv("logos.csv", type).then(function (data) {
+// Both logos.csv and the facade SVG get edited directly on disk as new
+// logos are drawn, so every load must fetch them fresh rather than risk the
+// browser silently serving a stale cached copy of either one.
+const CACHE_BUST = "?t=" + Date.now();
+
+d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const dataset = data;
 
   /// Date slider set-up
@@ -96,7 +101,7 @@ d3.csv("logos.csv", type).then(function (data) {
 
   //////// SVG PROSPETTO ////////
 
-  d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg").then(function (xml) {
+  d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg" + CACHE_BUST).then(function (xml) {
     const mapHeight = 600;
     const loghiSvg = d3
       .select("#map")
