@@ -111,8 +111,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       .attr("viewBox", "0 0 " + window.innerWidth + " " + mapHeight);
 
     const svgMap = xml.getElementsByTagName("g")[0];
+    // <defs> (gradients, clip-paths) can sit as a sibling of the main <g>
+    // rather than inside it -- grab it too, or every url(#...) reference
+    // inside svgMap (e.g. window gradients) points at nothing once moved.
+    const svgDefs = Array.from(xml.getElementsByTagName("defs"));
 
     loghiSvg.node().appendChild(svgMap);
+    svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
     applyNeonGlow(svgMap.querySelector("#Logos"));
     groups = d3.select("#Logos").selectAll("[data-logo]");
 

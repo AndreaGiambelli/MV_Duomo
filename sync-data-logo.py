@@ -77,12 +77,16 @@ def main():
         if not cid:
             continue
         norm = normalize(cid)
-        if norm not in csv_by_norm:
-            if child.get("data-logo") is None:
-                unmatched.append(cid)
-            continue
+        if norm in csv_by_norm:
+            csv_name = csv_by_norm[norm]
+        else:
+            # No CSV row names this group -- tag it with its own id anyway
+            # (self-referential) so it still enters the display toggle and
+            # ends up hidden, like everything else, instead of rendering
+            # permanently visible because nothing ever sets its display.
+            csv_name = cid
+            unmatched.append(cid)
 
-        csv_name = csv_by_norm[norm]
         targets = [child] + [g for g in child.iter() if local(g.tag) == "g" and g is not child]
 
         for g in targets:
