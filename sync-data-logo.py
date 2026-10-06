@@ -18,6 +18,7 @@ Se un gruppo non trova corrispondenza nel CSV, il suo id viene elencato
 alla fine -- quasi sempre e' un refuso nel nome del livello in Illustrator.
 """
 import csv
+import html
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -32,6 +33,20 @@ def normalize(s):
 
 def local(tag):
     return tag.split("}")[-1]
+
+
+def find_opening_tag(content, gid):
+    # ElementTree hands back ids already unescaped (e.g. "<Group>"), but the
+    # raw file text can spell the same id several ways (&lt;Group&gt;,
+    # &#60;Group&#62;, ...) depending on the export tool. Match generically
+    # on <g id="...">, then compare the decoded value instead of guessing
+    # which escaping was used.
+    matches = [
+        m.group(0)
+        for m in re.finditer(r'<g id="([^"]*)"[^>]*>', content)
+        if html.unescape(m.group(1)) == gid
+    ]
+    return matches
 
 
 def main():
@@ -76,8 +91,7 @@ def main():
                 already_ok.append(gid)
                 continue
 
-            pattern = re.compile(r'<g id="' + re.escape(gid) + r'"[^>]*>')
-            matches = pattern.findall(content)
+            matches = find_opening_tag(content, gid)
             if len(matches) != 1:
                 print(f"  ATTENZIONE: id={gid!r} non è univoco nel file (trovato {len(matches)} volte) -- salto, controlla a mano.")
                 continue
