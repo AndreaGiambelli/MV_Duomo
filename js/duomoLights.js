@@ -73,9 +73,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let moving = false;
   let timer;
   const playButton = d3.select("#play-button");
+  const song = document.getElementById("song");
   const startYear = YEAR_START;
   const endYear = 2000; // one year past the data extent, matches the original animation range
   let currentYear = startYear;
+
+  // Full play-through (1945 to 2000 inclusive) must take exactly 2:40.
+  const ANIMATION_DURATION_MS = 2 * 60 * 1000 + 40 * 1000;
+  const STEP_INTERVAL_MS = ANIMATION_DURATION_MS / (endYear - startYear + 1);
 
   const mapStart = new Map();
   const mapEnd = new Map();
@@ -86,29 +91,51 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     mapEnd.set(key, +d.logoEnd);
   });
 
-  playButton.on("click", function () {
-    const button = d3.select(this);
-    if (button.text() == "Pause") {
+  function togglePlay() {
+    if (playButton.text() == "Pause") {
       moving = false;
       clearInterval(timer);
-      button.text("Play");
+      playButton.text("Play");
+      song.pause();
     } else {
       moving = true;
-      timer = setInterval(step, 3500);
-      button.text("Pause");
+      timer = setInterval(step, STEP_INTERVAL_MS);
+      playButton.text("Pause");
+      song.play();
     }
+  }
+
+  playButton.on("click", togglePlay);
+
+  // "A" toggles play/pause from anywhere on the page, same as the button.
+  // e.repeat guards against the key firing continuously while held down.
+  window.addEventListener("keydown", function (e) {
+    if (!e.repeat && e.key.toLowerCase() === "a") togglePlay();
   });
 
   //////// SVG PROSPETTO ////////
 
   d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg" + CACHE_BUST).then(function (xml) {
     const mapHeight = 600;
+
+    // The facade in the source artwork's own coordinates starts at x=164 and
+    // is 801 wide, with 164 of margin intended on each side. Cropping the
+    // viewBox to exactly that region (rather than the full window width)
+    // centers the facade and hides the rest of the artwork -- the browser
+    // then scales this fixed crop to fit #map (preserveAspectRatio defaults
+    // to "xMidYMid meet"), so no extra side content is ever revealed.
+    const FACADE_START_X = 164;
+    const FACADE_WIDTH = 801;
+    const FACADE_MARGIN = 164;
+    const viewBoxX = FACADE_START_X - FACADE_MARGIN;
+    const viewBoxWidth = FACADE_MARGIN + FACADE_WIDTH + FACADE_MARGIN;
+
     const loghiSvg = d3
       .select("#map")
       .append("svg")
       .attr("width", "100%")
       .attr("height", "100%")
-      .attr("viewBox", "0 0 " + window.innerWidth + " " + mapHeight);
+      .attr("viewBox", viewBoxX + " 0 " + viewBoxWidth + " " + mapHeight);
 
     // fill (and other presentation attributes) on the source file's root
     // <svg> are inherited by every path that doesn't set its own -- moving
@@ -212,10 +239,11 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   }
 
   function step() {
-    updateProspetto(currentYear);
-    radialTimeline();
-
-    slider.value(currentYear);
+    // Advance before displaying: the first interval tick after Play is
+    // pressed fires one STEP_INTERVAL_MS in, so if it re-displayed the
+    // already-current year (as before) that year would sit on screen for
+    // double every other year's dwell time before the second tick moved it
+    // on. Incrementing first keeps every year's dwell time equal.
     currentYear = currentYear + 1;
 
     if (currentYear > endYear) {
@@ -223,7 +251,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       currentYear = startYear;
       clearInterval(timer);
       playButton.text("Play");
+      song.pause();
+      song.currentTime = 0;
+      return;
     }
+
+    updateProspetto(currentYear);
+    radialTimeline();
+    slider.value(currentYear);
   }
 
   function updateProspetto(h) {

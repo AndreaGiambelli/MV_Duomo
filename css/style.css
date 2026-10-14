@@ -27,15 +27,19 @@ body {
 
 #year-display {
   position: absolute;
-  top: 28px;
+  /* y=500 in the facade artwork's own coordinate space (0-707 original,
+     same units as the 0-600 viewBox crop in duomoLights.js), expressed as
+     a percentage of #map's height so it stays locked to that point on the
+     artwork at any screen size, shifted up 40px from that point. */
+  top: calc(83.3333% - 40px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
-  font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
-  font-size: 48px;
-  font-weight: 700;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 400;
   letter-spacing: 0.06em;
-  color: #fff;
+  color: #cdc6ad;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }

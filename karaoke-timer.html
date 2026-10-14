@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Karaoke Timer</title>
+    <style>
+      body {
+        background-color: #00091c;
+        color: #fff;
+        font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+        max-width: 720px;
+        margin: 40px auto;
+        padding: 0 20px;
+      }
+      h1 {
+        font-size: 24px;
+      }
+      p {
+        line-height: 1.5;
+        color: #cdc6ad;
+      }
+      audio {
+        width: 100%;
+        margin: 16px 0;
+      }
+      #status {
+        font-size: 14px;
+        color: #cdc6ad;
+        min-height: 20px;
+      }
+      #status.recording {
+        color: #ff6b6b;
+        font-weight: 700;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 16px;
+        font-variant-numeric: tabular-nums;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 6px 8px;
+        border-bottom: 1px solid #1a2240;
+        font-size: 14px;
+      }
+      th {
+        color: #cdc6ad;
+        font-weight: 700;
+      }
+      button {
+        background: #0b1329;
+        color: #fff;
+        border: 1px solid #cdc6ad;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 8px;
+      }
+      button:hover {
+        background: #1a2240;
+      }
+      button.del {
+        padding: 2px 8px;
+        margin: 0;
+        border-color: #555;
+        font-size: 12px;
+      }
+      #actions {
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Karaoke Timer</h1>
+    <p>
+      Carica il file audio, premi play, e tieni premuto <strong>K</strong>
+      per tutta la durata di ogni riga cantata (premi quando inizia,
+      rilascia quando finisce). Ogni pressione registra un segmento
+      inizio/fine. Quando hai finito, scarica l'.srt e riempi il testo di
+      ogni riga al posto del segnaposto.
+    </p>
+
+    <input type="file" id="fileInput" accept="audio/*" />
+    <audio id="player" controls></audio>
+
+    <div id="status">Carica un file audio per iniziare.</div>
+
+    <table id="segmentsTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Inizio</th>
+          <th>Fine</th>
+          <th>Durata</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="actions">
+      <button id="downloadBtn">Scarica .srt</button>
+      <button id="resetBtn">Azzera tutto</button>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("fileInput");
+      const player = document.getElementById("player");
+      const status = document.getElementById("status");
+      const tbody = document.querySelector("#segmentsTable tbody");
+      const downloadBtn = document.getElementById("downloadBtn");
+      const resetBtn = document.getElementById("resetBtn");
+
+      let segments = [];
+      let activeStart = null;
+
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        player.src = URL.createObjectURL(file);
+        status.textContent = `Traccia caricata: ${file.name}. Premi play, poi tieni premuto K sulle righe cantate.`;
+      });
+
+      function fmtTime(t) {
+        const m = Math.floor(t / 60);
+        const s = (t % 60).toFixed(2).padStart(5, "0");
+        return `${m}:${s}`;
+      }
+
+      function srtTime(t) {
+        const pad = (n, l = 2) => String(n).padStart(l, "0");
+        const h = Math.floor(t / 3600);
+        const m = Math.floor((t % 3600) / 60);
+        const s = Math.floor(t % 60);
+        const ms = Math.round((t - Math.floor(t)) * 1000);
+        return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+      }
+
+      function renderAll() {
+        tbody.innerHTML = "";
+        segments.forEach((seg, i) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${i + 1}</td>
+            <td>${fmtTime(seg.start)}</td>
+            <td>${fmtTime(seg.end)}</td>
+            <td>${(seg.end - seg.start).toFixed(2)}s</td>
+            <td><button class="del" data-i="${i}">elimina</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      tbody.addEventListener("click", (e) => {
+        if (!e.target.classList.contains("del")) return;
+        segments.splice(Number(e.target.dataset.i), 1);
+        renderAll();
+      });
+
+      window.addEventListener("keydown", (e) => {
+        if (e.key.toLowerCase() !== "k" || e.repeat || !player.src) return;
+        activeStart = player.currentTime;
+        status.textContent = `Registrando riga da ${fmtTime(activeStart)}...`;
+        status.classList.add("recording");
+      });
+
+      window.addEventListener("keyup", (e) => {
+        if (e.key.toLowerCase() !== "k" || activeStart === null) return;
+        const end = player.currentTime;
+        if (end > activeStart) {
+          segments.push({ start: activeStart, end });
+          renderAll();
+        }
+        activeStart = null;
+        status.classList.remove("recording");
+        status.textContent = `Pronto (${segments.length} righe registrate).`;
+      });
+
+      resetBtn.addEventListener("click", () => {
+        if (segments.length && !confirm("Cancellare tutti i timestamp registrati?")) return;
+        segments = [];
+        renderAll();
+        status.textContent = "Azzerato.";
+      });
+
+      downloadBtn.addEventListener("click", () => {
+        if (segments.length === 0) {
+          alert("Nessun timestamp registrato.");
+          return;
+        }
+        const srt = segments
+          .map(
+            (seg, i) =>
+              `${i + 1}\n${srtTime(seg.start)} --> ${srtTime(seg.end)}\n[testo riga ${i + 1}]\n`
+          )
+          .join("\n");
+        const blob = new Blob([srt], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "karaoke.srt";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>
