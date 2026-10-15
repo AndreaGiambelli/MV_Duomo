@@ -91,7 +91,17 @@ def main():
 
         for g in targets:
             gid = g.get("id")
-            if g.get("data-logo") == csv_name:
+            # A nested part normally inherits its top-level ancestor's name
+            # (that's what makes a multi-part logo like hermes_2..hermes_6
+            # toggle together). But if the export nested one distinct logo
+            # inside another's group -- as happened with "boario" ending up
+            # inside "boario3" -- and that nested group's own id matches a
+            # CSV row in its own right, it keeps its own identity instead of
+            # being swallowed by its ancestor's.
+            own_norm = normalize(gid)
+            effective_name = csv_by_norm.get(own_norm, csv_name) if g is not child else csv_name
+
+            if g.get("data-logo") == effective_name:
                 already_ok.append(gid)
                 continue
 
@@ -102,7 +112,7 @@ def main():
 
             old_tag = matches[0]
             cleaned = re.sub(r'\s+data-logo="[^"]*"', "", old_tag)
-            new_tag = cleaned[:-1] + f' data-logo="{csv_name}">'
+            new_tag = cleaned[:-1] + f' data-logo="{effective_name}">'
             content = content.replace(old_tag, new_tag, 1)
             added.append(gid)
 

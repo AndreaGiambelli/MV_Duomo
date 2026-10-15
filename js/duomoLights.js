@@ -194,17 +194,27 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   // Gives each logo a neon-style glow in its own accent color, derived from
   // the artwork itself (the most common non-neutral fill/stroke in it) so
-  // every logo stays coherent without being colored by hand. Only applied to
-  // the direct children of #Logos, so a multi-part logo glows as one shape
-  // rather than once per part. A randomized flicker delay keeps logos from
-  // pulsing in sync, like independent neon tubes.
+  // every logo stays coherent without being colored by hand. A sign drawn as
+  // several color-distinct parts (e.g. a white frame around a red name) gets
+  // the glow applied per direct sub-group instead of once for the whole
+  // sign, so each part glows its own color rather than the sign's single
+  // most-common color. Signs with no such sub-structure (flat artwork, no
+  // nested <g>) fall back to glowing as one piece. --flicker-delay is set
+  // once per sign and inherits down to every part, so a multi-color sign
+  // still flickers as a single unit, just tinted differently per part.
   function applyNeonGlow(logosGroup) {
     if (!logosGroup) return;
     Array.from(logosGroup.children).forEach((group) => {
       if (group.tagName !== "g" || !group.dataset.logo) return;
-      const color = pickAccentColor(group);
-      if (color) group.style.setProperty("--glow-color", color);
       group.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
+
+      const parts = Array.from(group.children).filter((c) => c.tagName === "g");
+      const glowUnits = parts.length > 0 ? parts : [group];
+      glowUnits.forEach((unit) => {
+        unit.classList.add("glow-unit");
+        const color = pickAccentColor(unit);
+        if (color) unit.style.setProperty("--glow-color", color);
+      });
     });
   }
 

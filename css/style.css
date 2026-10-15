@@ -44,10 +44,10 @@ body {
   pointer-events: none;
 }
 
-#Logos > [data-logo] {
-  filter: drop-shadow(0 0 1px var(--glow-color, #fff))
-    drop-shadow(0 0 3px var(--glow-color, #fff))
-    drop-shadow(0 0 6px var(--glow-color, #fff));
+#Logos .glow-unit {
+  filter: drop-shadow(0 0 0.5px var(--glow-color, #fff))
+    drop-shadow(0 0 1.5px var(--glow-color, #fff))
+    drop-shadow(0 0 3px var(--glow-color, #fff));
   animation: neon-flicker 9s infinite;
   animation-delay: var(--flicker-delay, 0s);
 }
@@ -65,7 +65,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #Logos > [data-logo] {
+  #Logos .glow-unit {
     animation: none;
   }
 }
