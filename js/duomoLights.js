@@ -74,6 +74,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let timer;
   const playButton = d3.select("#play-button");
   const song = document.getElementById("song");
+  setUpKaraoke(song);
   const startYear = YEAR_START;
   const endYear = 2000; // one year past the data extent, matches the original animation range
   let currentYear = startYear;
@@ -157,6 +158,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
     loghiSvg.node().appendChild(svgMap);
     svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
+    hideDrawnFacade(svgMap);
     applyNeonGlow(svgMap.querySelector("#Logos"));
     groups = d3.select("#Logos").selectAll("[data-logo]");
 
@@ -189,6 +191,36 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       if (!csvKeys.has(key)) {
         console.warn(`[duomoLights] il nodo SVG con data-logo="${this.dataset.logo}" non ha nessuna riga corrispondente in logos.csv`);
       }
+    });
+  }
+
+  // The source artwork's drawn facade is replaced on screen by the looping
+  // piazza video sitting behind this SVG (see #piazza-bg in index.html) --
+  // these groups are hidden rather than deleted from the file, so the
+  // original illustration stays recoverable if the video approach changes.
+  // "Layer 1" / "Group 11" are guide layers that sit outside #viewport
+  // entirely (siblings of #layout, found while prototyping the swap in
+  // test_overlay.html), and the embedded photo rect was a static stand-in
+  // used to check logo alignment before the video existed.
+  const HIDDEN_FACADE_IDS = [
+    "Background",
+    "Pavement",
+    "Sides",
+    "Fondo Prospetto",
+    "Layer2",
+    "Generated Image October 15, 2026 - 7_46AM 1",
+  ];
+  const HIDDEN_ROOT_IDS = ["Layer 1", "Group 11"];
+
+  function hideDrawnFacade(svgMap) {
+    const viewport = svgMap.querySelector("#viewport");
+    HIDDEN_FACADE_IDS.forEach((id) => {
+      const el = viewport && viewport.querySelector(`[id="${id}"]`);
+      if (el) el.style.display = "none";
+    });
+    HIDDEN_ROOT_IDS.forEach((id) => {
+      const el = svgMap.querySelector(`[id="${id}"]`);
+      if (el) el.style.display = "none";
     });
   }
 
@@ -398,4 +430,41 @@ function type(d) {
   d.logoStart = +d.logoStart;
   d.logoEnd = +d.logoEnd;
   return d;
+}
+
+function parseSrtTime(t) {
+  const [, h, m, s, ms] = t.match(/(\d+):(\d+):(\d+),(\d+)/).map(Number);
+  return h * 3600 + m * 60 + s + ms / 1000;
+}
+
+function parseSrt(text) {
+  return text
+    .trim()
+    .split(/\r?\n\r?\n/)
+    .map((block) => {
+      const lines = block.split(/\r?\n/);
+      const [startStr, endStr] = lines[1].split("-->").map((s) => s.trim());
+      return {
+        start: parseSrtTime(startStr),
+        end: parseSrtTime(endStr),
+        text: lines.slice(2).join("\n"),
+      };
+    });
+}
+
+// Drives #karaoke-line off the song's own currentTime (rather than the
+// year-advancing setInterval in step()) so the lyrics stay in sync with the
+// audio even though the two timelines don't share the same duration.
+function setUpKaraoke(song) {
+  const karaokeLine = document.getElementById("karaoke-line");
+  fetch("karaoke.srt" + CACHE_BUST)
+    .then((response) => response.text())
+    .then((text) => {
+      const cues = parseSrt(text);
+      song.addEventListener("timeupdate", () => {
+        const t = song.currentTime;
+        const cue = cues.find((c) => t >= c.start && t <= c.end);
+        karaokeLine.textContent = cue ? cue.text : "";
+      });
+    });
 }

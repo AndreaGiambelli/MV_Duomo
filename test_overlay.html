@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Overlay alignment test</title>
+    <style>
+      body { margin: 0; background: #111; color: #ccc; font-family: sans-serif; }
+      #info { padding: 8px 12px; font-size: 13px; }
+      #map { width: 100%; }
+      #map svg { display: block; width: 100%; height: auto; }
+    </style>
+  </head>
+  <body>
+    <div id="info">Facade paths hidden, embedded photo rect at opacity 1, all logos forced visible (no year filter).</div>
+    <div id="map"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script>
+      const CACHE_BUST = "?t=" + Date.now();
+      const mapHeight = 600;
+      const FACADE_START_X = 164;
+      const FACADE_WIDTH = 801;
+      const FACADE_MARGIN = 164;
+      const viewBoxX = FACADE_START_X - FACADE_MARGIN;
+      const viewBoxWidth = FACADE_MARGIN + FACADE_WIDTH + FACADE_MARGIN;
+
+      d3.xml("svg/CARMINATI_REAL_forSVG copy_210213.svg" + CACHE_BUST).then(function (xml) {
+        const loghiSvg = d3
+          .select("#map")
+          .append("svg")
+          .attr("width", "100%")
+          .attr("height", "100%")
+          .attr("viewBox", viewBoxX + " 0 " + viewBoxWidth + " " + mapHeight);
+
+        const sourceRoot = xml.documentElement;
+        ["fill", "stroke", "color"].forEach((attr) => {
+          const value = sourceRoot.getAttribute(attr);
+          if (value !== null) loghiSvg.attr(attr, value);
+        });
+
+        const svgMap = xml.getElementsByTagName("g")[0];
+        const svgDefs = Array.from(xml.getElementsByTagName("defs"));
+
+        loghiSvg.node().appendChild(svgMap);
+        svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
+
+        // Hide every facade-drawing group, keep only the embedded photo rect + Logos
+        const viewport = svgMap.querySelector("#viewport");
+        const HIDE_IDS = ["Background", "Pavement", "Sides", "Fondo Prospetto", "Layer2"];
+        HIDE_IDS.forEach((id) => {
+          const el = viewport.querySelector('[id="' + id + '"]');
+          if (el) el.style.display = "none";
+          else console.warn("not found:", id);
+        });
+        // "Layer 1" / "Group 11" are guide layers that sit outside #viewport
+        // entirely (siblings of #layout), hence the separate pass here.
+        ["Layer 1", "Group 11"].forEach((id) => {
+          const el = svgMap.querySelector('[id="' + id + '"]');
+          if (el) el.style.display = "none";
+          else console.warn("not found:", id);
+        });
+
+        const photoRect = viewport.querySelector('[id="Generated Image October 15, 2026 - 7_46AM 1"]');
+        if (photoRect) photoRect.setAttribute("opacity", "1");
+        else console.warn("photo rect not found");
+
+        const TEST_YEAR = new URLSearchParams(location.search).get("year");
+        const groups = d3.select("#Logos").selectAll("[data-logo]");
+
+        if (!TEST_YEAR) {
+          groups.style("display", "block");
+        } else {
+          d3.csv("logos.csv?t=" + Date.now()).then(function (data) {
+            const mapStart = new Map(), mapEnd = new Map();
+            data.forEach((d) => {
+              const key = (d.logoName || "").trim().toLowerCase();
+              mapStart.set(key, +d.logoStart);
+              mapEnd.set(key, +d.logoEnd);
+            });
+            const year = +TEST_YEAR;
+            groups.style("display", function () {
+              const key = (this.dataset.logo || "").trim().toLowerCase();
+              return mapStart.get(key) <= year && mapEnd.get(key) >= year ? "block" : "none";
+            });
+          });
+        }
+      });
+    </script>
+  </body>
+</html>

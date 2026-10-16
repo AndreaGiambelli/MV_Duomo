@@ -25,6 +25,34 @@ body {
   z-index: 0;
 }
 
+#map video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* the crop viewBox (1129x600) is a slightly different aspect ratio than
+     the video (1376x768); cover's default center crop would therefore trim
+     a bit off both top and bottom. The original embedded reference image
+     sat almost flush with the top of that crop (y=4.2 of 600) with all the
+     excess height falling below it, so anchoring to the top here (instead
+     of center) reproduces that same placement and keeps the video aligned
+     with the logo positions. */
+  object-position: top;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+/* the facade SVG is appended by duomoLights.js as a sibling of the video;
+   it must sit above it, with the facade-drawing paths hidden at runtime so
+   only #Logos is opaque and the video shows through everywhere else. */
+#map svg {
+  position: relative;
+  z-index: 1;
+}
+
 #year-display {
   position: absolute;
   /* y=500 in the facade artwork's own coordinate space (0-707 original,
@@ -41,6 +69,25 @@ body {
   letter-spacing: 0.06em;
   color: #cdc6ad;
   font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#karaoke-line {
+  position: absolute;
+  /* directly below #year-display, same anchor point shifted down by one
+     line's worth of its 30px font-size instead of up. */
+  top: calc(83.3333% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: 90%;
+  max-width: 600px;
+  text-align: center;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 30px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: #cdc6ad;
   pointer-events: none;
 }
 
