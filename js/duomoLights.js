@@ -77,11 +77,20 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   setUpKaraoke(song);
   const startYear = YEAR_START;
   const endYear = 2000; // one year past the data extent, matches the original animation range
-  let currentYear = startYear;
+  // null = nothing shown yet (just the facade video with its crowd) -- the
+  // state before 1945's first appearance, both on initial load and during
+  // the pre-roll below.
+  let currentYear = null;
 
-  // Full play-through (1945 to 2000 inclusive) must take exactly 2:40.
-  const ANIMATION_DURATION_MS = 2 * 60 * 1000 + 40 * 1000;
-  const STEP_INTERVAL_MS = ANIMATION_DURATION_MS / (endYear - startYear + 1);
+  // Two fixed landmarks in the audio track drive every other year's timing:
+  // 1946 at 22s and 2000 (the last year) at 3:00. The per-year step is
+  // whatever makes those two exact, and 1945 sits one step before 1946 --
+  // nothing shows before that.
+  const YEAR_1946_AUDIO_SEC = 22;
+  const YEAR_2000_AUDIO_SEC = 3 * 60;
+  const STEP_INTERVAL_MS =
+    ((YEAR_2000_AUDIO_SEC - YEAR_1946_AUDIO_SEC) * 1000) / (endYear - 1946);
+  const PREROLL_MS = YEAR_1946_AUDIO_SEC * 1000 - STEP_INTERVAL_MS;
 
   const mapStart = new Map();
   const mapEnd = new Map();
@@ -92,17 +101,45 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     mapEnd.set(key, +d.logoEnd);
   });
 
+  let prerollTimer = null;
+
+  function startYearStepping() {
+    currentYear = startYear;
+    updateProspetto(currentYear);
+    radialTimeline();
+    slider.value(currentYear);
+    timer = setInterval(step, STEP_INTERVAL_MS);
+  }
+
   function togglePlay() {
     if (playButton.text() == "Pause") {
       moving = false;
       clearInterval(timer);
+      clearTimeout(prerollTimer);
       playButton.text("Play");
       song.pause();
     } else {
       moving = true;
-      timer = setInterval(step, STEP_INTERVAL_MS);
       playButton.text("Pause");
+      // Scrollama's own preview (see handleStepEnter) may already have set
+      // a year while idle, with the audio still untouched -- audio at 0:00
+      // means this press is a genuinely fresh start (or a replay after a
+      // full cycle), so re-hide everything and wait out the pre-roll again
+      // rather than trusting whatever year is currently on screen.
+      if (song.currentTime === 0 && currentYear !== null) {
+        currentYear = null;
+        updateProspetto(currentYear);
+        radialTimeline();
+      }
       song.play();
+      // On a fresh start wait out the pre-roll so 1945/1946 land on the
+      // facade in sync with the track; resuming after a mid-sequence pause
+      // skips straight back into the regular per-year cadence.
+      if (currentYear === null) {
+        prerollTimer = setTimeout(startYearStepping, PREROLL_MS);
+      } else {
+        timer = setInterval(step, STEP_INTERVAL_MS);
+      }
     }
   }
 
@@ -165,6 +202,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     warnAboutUnmatchedLogos(dataset, groups);
 
     groups.style("display", function () {
+      if (currentYear === null) return "none";
       const key = normalizeLogoKey(this.dataset.logo);
       return mapStart.get(key) <= currentYear && mapEnd.get(key) >= currentYear
         ? "block"
@@ -304,9 +342,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   }
 
   function updateProspetto(h) {
-    d3.select("#value").text(h);
-    d3.select("#year-display").text(h);
+    d3.select("#value").text(h === null ? "" : h);
+    d3.select("#year-display").text(h === null ? "" : h);
     groups.style("display", function () {
+      if (h === null) return "none";
       const key = normalizeLogoKey(this.dataset.logo);
       return mapStart.get(key) <= h && mapEnd.get(key) >= h ? "block" : "none";
     });
@@ -316,6 +355,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   function radialTimeline() {
     const arc = d3.arc();
+
+    // Before 1945 first appears (currentYear is null) there's no progress
+    // to show yet -- treat the overlay as sitting at the very start.
+    const progressYear = currentYear === null ? YEAR_START : currentYear;
 
     d3.selectAll(".timeBand").remove();
     d3.selectAll(".timeBand__overlay").remove();
@@ -336,7 +379,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
     overlayBands.forEach(function (d) {
       d.startAngle = angleScale(d.logoStart - YEAR_START);
-      d.endAngle = angleScale(currentYear - YEAR_START);
+      d.endAngle = angleScale(progressYear - YEAR_START);
       d.y = d.y + 50;
     });
 
@@ -394,7 +437,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       })
       .style("fill", "green")
       .style("display", (d) => {
-        if (d.logoStart <= currentYear && d.logoEnd >= currentYear) {
+        if (d.logoStart <= progressYear && d.logoEnd >= progressYear) {
           return "block";
         } else {
           return "none";
