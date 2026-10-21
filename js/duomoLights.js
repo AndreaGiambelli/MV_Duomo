@@ -75,6 +75,28 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const playButton = d3.select("#play-button");
   const song = document.getElementById("song");
   setUpKaraoke(song);
+  const piazzaPlate = document.getElementById("piazza-plate");
+  const piazzaVideo = document.getElementById("piazza-bg");
+  // Street starts empty (the plate, no people/cars) and only cuts over to
+  // the looping crowd video once a year is actually on screen -- driven
+  // from updateProspetto() below so it switches in lockstep with 1945's
+  // audio-synced entrance (and with scrollama's idle preview), never on
+  // its own timer.
+  let crowdVisible = false;
+  function setCrowdVisible(visible) {
+    if (visible === crowdVisible) return;
+    crowdVisible = visible;
+    if (visible) {
+      piazzaPlate.style.display = "none";
+      piazzaVideo.style.display = "block";
+      piazzaVideo.currentTime = 0;
+      piazzaVideo.play();
+    } else {
+      piazzaVideo.pause();
+      piazzaVideo.style.display = "none";
+      piazzaPlate.style.display = "block";
+    }
+  }
   const startYear = YEAR_START;
   const endYear = 2000; // one year past the data extent, matches the original animation range
   // null = nothing shown yet (just the facade video with its crowd) -- the
@@ -201,13 +223,18 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
     warnAboutUnmatchedLogos(dataset, groups);
 
-    groups.style("display", function () {
-      if (currentYear === null) return "none";
+    groups.style("opacity", function () {
+      if (currentYear === null) return 0;
       const key = normalizeLogoKey(this.dataset.logo);
       return mapStart.get(key) <= currentYear && mapEnd.get(key) >= currentYear
-        ? "block"
-        : "none";
+        ? 1
+        : 0;
     });
+    // Mirrors updateProspetto()'s crowd toggle, in case Play was pressed
+    // (advancing currentYear past null) before this slower SVG fetch
+    // resolved -- without this the facade would catch up but the street
+    // would stay stuck on the empty plate.
+    setCrowdVisible(currentYear !== null);
   });
 
   // Surfaces mismatches between the CSV and the artwork instead of letting
@@ -262,6 +289,16 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     });
   }
 
+  // Some signs shouldn't glow at all -- e.g. copertura1990 is scaffolding
+  // sheeting, not an illuminated sign, and a few real signs (benetton, the
+  // acqua da tavola pair, jodont) were asked to stay plain. Keyed by the
+  // same normalized logoName used everywhere else to match CSV rows.
+  const NO_GLOW_LOGOS = new Set(
+    ["benetton", "copertura1990", "lAcquaDaTavola1", "acquaDaTavola2", "jodont"].map(
+      normalizeLogoKey
+    )
+  );
+
   // Gives each logo a neon-style glow in its own accent color, derived from
   // the artwork itself (the most common non-neutral fill/stroke in it) so
   // every logo stays coherent without being colored by hand. A sign drawn as
@@ -276,9 +313,26 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     if (!logosGroup) return;
     Array.from(logosGroup.children).forEach((group) => {
       if (group.tagName !== "g" || !group.dataset.logo) return;
+      if (NO_GLOW_LOGOS.has(normalizeLogoKey(group.dataset.logo))) return;
       group.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
 
       const parts = Array.from(group.children).filter((c) => c.tagName === "g");
+
+      if (parts.length === 0) {
+        // A flat sign's flicker animation lands on this exact group -- and
+        // a running CSS animation always wins over any other source for the
+        // property it animates, so updateProspetto()'s year-based opacity
+        // fade (also targeting [data-logo], also setting opacity) would be
+        // silently overridden and the sign would stay visible forever.
+        // Wrap it in an extra group carrying the same data-logo: the
+        // wrapper owns the year-based fade untouched by any animation,
+        // while the flicker keeps animating the original group inside it.
+        const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        wrapper.dataset.logo = group.dataset.logo;
+        group.parentNode.insertBefore(wrapper, group);
+        wrapper.appendChild(group);
+      }
+
       const glowUnits = parts.length > 0 ? parts : [group];
       glowUnits.forEach((unit) => {
         unit.classList.add("glow-unit");
@@ -342,13 +396,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   }
 
   function updateProspetto(h) {
-    d3.select("#value").text(h === null ? "" : h);
-    d3.select("#year-display").text(h === null ? "" : h);
-    groups.style("display", function () {
-      if (h === null) return "none";
+    fadeTextTo(document.getElementById("value"), h);
+    fadeTextTo(document.getElementById("year-display"), h);
+    groups.style("opacity", function () {
+      if (h === null) return 0;
       const key = normalizeLogoKey(this.dataset.logo);
-      return mapStart.get(key) <= h && mapEnd.get(key) >= h ? "block" : "none";
+      return mapStart.get(key) <= h && mapEnd.get(key) >= h ? 1 : 0;
     });
+    setCrowdVisible(h !== null);
   }
 
   const timelineCenter = { x: 500, y: 250 };
@@ -475,6 +530,23 @@ function type(d) {
   return d;
 }
 
+// Briefly fades an element's text out, swaps it, then fades back in, so
+// the year caption/readout and the karaoke line read as a soft crossfade
+// instead of a hard cut. Matches the opacity transition duration declared
+// in CSS for these elements. No-ops when the text isn't actually changing,
+// since callers (a ~3s year cadence, a timeupdate firing many times a
+// second) call this far more often than the displayed value changes.
+const TEXT_FADE_MS = 150;
+function fadeTextTo(el, text) {
+  const next = text === null ? "" : String(text);
+  if (el.textContent === next) return;
+  el.style.opacity = 0;
+  setTimeout(() => {
+    el.textContent = next;
+    el.style.opacity = 1;
+  }, TEXT_FADE_MS);
+}
+
 function parseSrtTime(t) {
   const [, h, m, s, ms] = t.match(/(\d+):(\d+):(\d+),(\d+)/).map(Number);
   return h * 3600 + m * 60 + s + ms / 1000;
@@ -507,7 +579,7 @@ function setUpKaraoke(song) {
       song.addEventListener("timeupdate", () => {
         const t = song.currentTime;
         const cue = cues.find((c) => t >= c.start && t <= c.end);
-        karaokeLine.textContent = cue ? cue.text : "";
+        fadeTextTo(karaokeLine, cue ? cue.text : "");
       });
     });
 }

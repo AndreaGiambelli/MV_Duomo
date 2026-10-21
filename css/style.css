@@ -25,7 +25,12 @@ body {
   z-index: 0;
 }
 
-#map video {
+/* #piazza-plate (the empty street, shown before 1945 appears) and
+   #piazza-bg (the looping crowd/car-lights video, revealed in sync with
+   it -- see setCrowdVisible() in duomoLights.js) sit in the exact same
+   box, so they share every positioning rule and only ever differ by
+   which one is display:none. */
+#map .piazza-layer {
   position: absolute;
   top: 0;
   left: 0;
@@ -33,16 +38,23 @@ body {
   height: 100%;
   object-fit: cover;
   /* the crop viewBox (1129x600) is a slightly different aspect ratio than
-     the video (1376x768); cover's default center crop would therefore trim
-     a bit off both top and bottom. The original embedded reference image
-     sat almost flush with the top of that crop (y=4.2 of 600) with all the
-     excess height falling below it, so anchoring to the top here (instead
-     of center) reproduces that same placement and keeps the video aligned
-     with the logo positions. */
+     the source art (1376x768); cover's default center crop would therefore
+     trim a bit off both top and bottom. The original embedded reference
+     image sat almost flush with the top of that crop (y=4.2 of 600) with
+     all the excess height falling below it, so anchoring to the top here
+     (instead of center) reproduces that same placement and keeps both
+     layers aligned with the logo positions. */
   object-position: top;
   z-index: 0;
   pointer-events: none;
   opacity: 0.7;
+  display: block;
+}
+
+/* hidden by default -- revealed only once setCrowdVisible(true) runs,
+   exactly when currentYear leaves null (1945's audio-synced entrance). */
+#map video.piazza-layer {
+  display: none;
 }
 
 /* the facade SVG is appended by duomoLights.js as a sibling of the video;
@@ -51,6 +63,14 @@ body {
 #map svg {
   position: relative;
   z-index: 1;
+}
+
+#year-display,
+#value,
+#karaoke-line {
+  /* brief crossfade for text swaps -- duomoLights.js's fadeTextTo() dips
+     opacity to 0, swaps the text, then back to 1, matching this duration. */
+  transition: opacity 0.15s ease;
 }
 
 #year-display {
@@ -91,10 +111,17 @@ body {
   pointer-events: none;
 }
 
+/* every element duomoLights.js toggles on/off by year (top-level signs and
+   their nested parts alike) carries this same data attribute, so a single
+   rule covers the whole fade in both directions. */
+#Logos [data-logo] {
+  transition: opacity 0.35s ease;
+}
+
 #Logos .glow-unit {
-  filter: drop-shadow(0 0 0.3px var(--glow-color, #fff))
-    drop-shadow(0 0 0.9px var(--glow-color, #fff))
-    drop-shadow(0 0 1.8px var(--glow-color, #fff));
+  filter: drop-shadow(0 0 0.15px var(--glow-color, #fff))
+    drop-shadow(0 0 0.45px var(--glow-color, #fff))
+    drop-shadow(0 0 0.9px var(--glow-color, #fff));
   animation: neon-flicker 9s infinite;
   animation-delay: var(--flicker-delay, 0s);
 }
