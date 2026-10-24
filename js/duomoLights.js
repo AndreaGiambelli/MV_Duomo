@@ -480,7 +480,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   function pickAccentColor(group) {
     const counts = new Map();
     group.querySelectorAll("*").forEach((el) => {
-      ["fill", "stroke"].forEach((attr) => {
+      // stroke before fill: Array.sort is stable, so on an exact tie
+      // (e.g. paglieri, where every path has both a fill and a different
+      // stroke, 17-17) whichever was inserted into the map first wins --
+      // checking stroke first means a tied outline color wins over a tied
+      // fill color, since these signs are usually drawn as a colored neon
+      // outline over a plain/dark fill, not the other way round.
+      ["stroke", "fill"].forEach((attr) => {
         const value = el.getAttribute(attr);
         if (!value || value === "none" || isNeutralColor(value)) return;
         counts.set(value, (counts.get(value) || 0) + 1);
