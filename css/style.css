@@ -118,10 +118,36 @@ body {
   transition: opacity 0.35s ease;
 }
 
+/* Scoped to #Logos only -- the main facade. The logo wall below clones
+   these same glow-unit elements by the hundred, and the round timeline
+   draws hundreds of its own arcs; giving every one of those the full
+   4-layer color-mix() glow measurably slowed the page down (~37ms per
+   forced style recalc), so they get the cheaper rule further down
+   instead. Full glow stays here since the facade only ever shows a
+   handful of signs lit at once. */
 #Logos .glow-unit {
-  filter: drop-shadow(0 0 0.15px var(--glow-color, #fff))
-    drop-shadow(0 0 0.45px var(--glow-color, #fff))
-    drop-shadow(0 0 0.9px var(--glow-color, #fff));
+  /* innermost layer stays small and fully opaque so the sign's actual
+     outline reads crisp; the outer layers reach further out (up to 5px)
+     but fade toward transparent, so the extra spatial glow sits behind
+     the artwork as a soft halo instead of blurring it into a blob. */
+  filter: drop-shadow(0 0 0.2px var(--glow-color, #fff))
+    drop-shadow(0 0 1.5px color-mix(in srgb, var(--glow-color, #fff) 75%, transparent))
+    drop-shadow(0 0 3.5px color-mix(in srgb, var(--glow-color, #fff) 50%, transparent))
+    drop-shadow(0 0 7px color-mix(in srgb, var(--glow-color, #fff) 28%, transparent));
+}
+
+/* Cheap 2-layer glow (no color-mix, half the drop-shadow layers) for the
+   two high-count views: #logo-wall-grid's ~120 tiles (thousands of cloned
+   paths) and the round timeline's ~270 arcs. Visibly still glows, just
+   far less expensive to paint at this volume. */
+#logo-wall-grid .glow-unit,
+.timeBand,
+.timeBand__overlay {
+  filter: drop-shadow(0 0 1px var(--glow-color, #fff))
+    drop-shadow(0 0 3px var(--glow-color, #fff));
+}
+
+.glow-unit {
   animation: neon-flicker 9s infinite;
   animation-delay: var(--flicker-delay, 0s);
 }
@@ -139,9 +165,115 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #Logos .glow-unit {
+  .glow-unit {
     animation: none;
   }
+}
+
+#logo-wall {
+  background: #00091c;
+  padding: 60px 8px;
+}
+
+#logo-wall h2 {
+  color: #cdc6ad;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-align: center;
+  margin: 0 0 24px;
+}
+
+/* A dense, bento-style mosaic: every logo gets its own tile sized to a
+   multiple of this base unit (via the .tile-w2/.tile-w3/.tile-tall spans
+   below, picked from each sign's own aspect ratio in duomoLights.js), and
+   `dense` packs tiles of different sizes into the gaps instead of leaving
+   ragged holes -- scrolling through reads as one continuous carpet of
+   signs rather than a uniform spreadsheet-like table. */
+#logo-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-auto-rows: 66px;
+  grid-auto-flow: dense;
+  gap: 1px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.logo-tile {
+  position: relative;
+  background: #050b1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  cursor: default;
+  /* Skips layout/paint -- and with it, the flicker animation inside --
+     for tiles currently off-screen; contain-intrinsic-size keeps their
+     reserved space roughly right (most tiles are 1x1) so scrolling
+     doesn't jump as they pop in and out of containment. */
+  content-visibility: auto;
+  contain-intrinsic-size: 100px 66px;
+}
+
+.logo-tile.tile-w2 {
+  grid-column: span 2;
+}
+
+.logo-tile.tile-w3 {
+  grid-column: span 3;
+}
+
+.logo-tile.tile-tall {
+  grid-row: span 2;
+}
+
+.logo-tile svg {
+  width: 98%;
+  height: 98%;
+  overflow: visible;
+}
+
+/* #timeline-tooltip reuses this class for identical look-and-feel but is
+   shared and positioned directly in JS (showTimelineTooltip): both the
+   round timeline's arcs and the logo wall's tiles call it on hover, since
+   it needs to follow the cursor over hundreds of elements rather than
+   sitting fixed above one, and (for the wall specifically) needs to live
+   outside any .logo-tile -- content-visibility:auto there would otherwise
+   clip a tooltip nested inside it. Needs viewport coordinates instead of
+   this base rule's parent-relative ones. */
+#timeline-tooltip {
+  position: fixed;
+  bottom: auto;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -100%);
+}
+
+.tile-tooltip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0b1329;
+  border: 1px solid #cdc6ad;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cdc6ad;
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.tile-tooltip strong {
+  color: #fff;
+  font-weight: 700;
 }
 
 .scroll-p {
@@ -184,9 +316,20 @@ body {
   height: 800px;
 }
 
+/* viewBox on the element itself (see index.html) crops tightly around the
+   drawn 270deg sweep instead of the much larger square canvas it used to
+   sit in uncentered -- this block just displays that crop bigger and
+   centers it on the page. */
 #timelineSvg {
-  height: 1100px;
-  width: 1100px;
+  display: block;
+  width: 796px;
+  max-width: 100%;
+  /* keeps the viewBox's own ratio (456:544) when max-width shrinks the
+     element below 796px, instead of the fixed px height it had before
+     (which would otherwise letterbox/distort the crop at narrower widths). */
+  aspect-ratio: 456 / 544;
+  height: auto;
+  margin: 0 auto;
   color: black;
   fill: black;
 }

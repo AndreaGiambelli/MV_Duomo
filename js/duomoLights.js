@@ -97,6 +97,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       piazzaPlate.style.display = "block";
     }
   }
+  // Filled in once the facade SVG loads (see buildLogoAccentColorMap below);
+  // the round timeline's first paint happens before that, so every arc
+  // falls back to the muted base color until the real ones are ready.
+  let logoAccentColor = new Map();
   const startYear = YEAR_START;
   const endYear = 2000; // one year past the data extent, matches the original animation range
   // null = nothing shown yet (just the facade video with its crowd) -- the
@@ -219,6 +223,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
     hideDrawnFacade(svgMap);
     applyNeonGlow(svgMap.querySelector("#Logos"));
+    logoAccentColor = buildLogoAccentColorMap(svgMap.querySelector("#Logos"));
+    lazyBuildLogoWall(dataset, svgMap.querySelector("#Logos"), loghiSvg.node());
     groups = d3.select("#Logos").selectAll("[data-logo]");
 
     warnAboutUnmatchedLogos(dataset, groups);
@@ -235,6 +241,11 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     // resolved -- without this the facade would catch up but the street
     // would stay stuck on the empty plate.
     setCrowdVisible(currentYear !== null);
+    // Repaint now that logoAccentColor is populated -- the very first call
+    // (below, right after this whole d3.xml().then() chain is set up) ran
+    // before this slower fetch resolved, so every arc drew in the muted
+    // fallback color until now.
+    radialTimeline();
   });
 
   // Surfaces mismatches between the CSV and the artwork instead of letting
@@ -342,6 +353,130 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     });
   }
 
+  // One representative color per logo -- whatever applyNeonGlow already
+  // picked for its glow -- so the round timeline's arcs (see
+  // radialTimeline below) can be tinted and glow the same way instead of
+  // rendering as a generic, uncolored chart.
+  function buildLogoAccentColorMap(logosGroup) {
+    const map = new Map();
+    if (!logosGroup) return map;
+    Array.from(logosGroup.children).forEach((g) => {
+      if (g.tagName !== "g" || !g.dataset.logo) return;
+      const key = normalizeLogoKey(g.dataset.logo);
+      if (map.has(key)) return;
+      const unit = g.classList.contains("glow-unit") ? g : g.querySelector(".glow-unit");
+      const color = unit && unit.style.getPropertyValue("--glow-color");
+      if (color) map.set(key, color);
+    });
+    return map;
+  }
+
+  // buildLogoWall clones ~5,000+ paths across ~120 tiles -- real cost even
+  // before any filter/animation is applied -- so it's deferred until
+  // #logo-wall is actually about to scroll into view (with margin, so it's
+  // ready just before it's reached) instead of paid by every visitor at
+  // page load regardless of whether they ever scroll this far.
+  function lazyBuildLogoWall(dataset, logosGroup, facadeSvgRoot) {
+    const section = document.getElementById("logo-wall");
+    if (!section) return;
+    if (!("IntersectionObserver" in window)) {
+      buildLogoWall(dataset, logosGroup, facadeSvgRoot);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        buildLogoWall(dataset, logosGroup, facadeSvgRoot);
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(section);
+  }
+
+  // Mirrors every logo that has real artwork (one CSV row with a matching
+  // SVG group) into its own small always-on tile in #logo-wall-grid,
+  // roughly in order of first appearance -- a "carpet" of every sign the
+  // facade ever shows, glowing and flickering exactly like the main
+  // timeline since each tile is a straight clone of the glow-ready group
+  // (see applyNeonGlow above), just with the year-based opacity/display it
+  // inherited from the clone stripped back off. A hover tooltip surfaces
+  // each sign's years and provenance/category from the CSV.
+  function buildLogoWall(dataset, logosGroup, facadeSvgRoot) {
+    const container = document.getElementById("logo-wall-grid");
+    if (!container || !logosGroup) return;
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    // Paths with no fill of their own inherit one from the facade's root
+    // <svg> (carried over from the source file, see the fill/stroke/color
+    // copy above) -- each tile gets its own fresh <svg>, so without these
+    // same attributes those paths fall back to SVG's true default fill,
+    // black, showing up as solid black shapes instead of their real color.
+    const inheritedAttrs = ["fill", "stroke", "color"]
+      .map((attr) => [attr, facadeSvgRoot && facadeSvgRoot.getAttribute(attr)])
+      .filter(([, value]) => value !== null && value !== undefined);
+    const sourcesByKey = new Map();
+    Array.from(logosGroup.children).forEach((g) => {
+      if (g.tagName === "g" && g.dataset.logo) {
+        sourcesByKey.set(normalizeLogoKey(g.dataset.logo), g);
+      }
+    });
+
+    const seen = new Set();
+    const rows = [...dataset]
+      .sort((a, b) => a.logoStart - b.logoStart)
+      .filter((d) => {
+        const key = normalizeLogoKey(d.logoName);
+        if (seen.has(key) || !sourcesByKey.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+    const PAD = 0.6; // breathing room around each sign's own bbox, in its own SVG units
+
+    rows.forEach((d) => {
+      const source = sourcesByKey.get(normalizeLogoKey(d.logoName));
+      const bbox = source.getBBox();
+      if (bbox.width === 0 || bbox.height === 0) return;
+
+      const clone = source.cloneNode(true);
+      clone.querySelectorAll("*").forEach((el) => {
+        el.style.removeProperty("opacity");
+        el.style.removeProperty("display");
+      });
+      clone.style.removeProperty("opacity");
+      clone.style.removeProperty("display");
+
+      const tileSvg = document.createElementNS(svgNS, "svg");
+      tileSvg.setAttribute(
+        "viewBox",
+        `${bbox.x - PAD} ${bbox.y - PAD} ${bbox.width + PAD * 2} ${bbox.height + PAD * 2}`
+      );
+      inheritedAttrs.forEach(([attr, value]) => tileSvg.setAttribute(attr, value));
+      tileSvg.appendChild(clone);
+
+      const tile = document.createElement("div");
+      tile.className = "logo-tile";
+      const aspect = bbox.width / bbox.height;
+      if (aspect >= 4) tile.classList.add("tile-w3");
+      else if (aspect >= 1.8) tile.classList.add("tile-w2");
+      else if (aspect <= 0.7) tile.classList.add("tile-tall");
+
+      // A tooltip nested inside the tile (like an earlier version of this)
+      // gets silently clipped: .logo-tile has content-visibility:auto for
+      // off-screen performance, which carries implied paint containment
+      // that crops anything extending past the tile's own box, hover or
+      // not. The shared #timeline-tooltip (see showTimelineTooltip below)
+      // lives outside any contained ancestor, so reuse that instead.
+      tile.addEventListener("mouseover", (event) => showTimelineTooltip(event, d));
+      tile.addEventListener("mousemove", (event) => showTimelineTooltip(event, d));
+      tile.addEventListener("mouseout", hideTimelineTooltip);
+
+      tile.appendChild(tileSvg);
+      container.appendChild(tile);
+    });
+  }
+
   function pickAccentColor(group) {
     const counts = new Map();
     group.querySelectorAll("*").forEach((el) => {
@@ -408,8 +543,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   const timelineCenter = { x: 500, y: 250 };
 
+  const TIMELINE_BASE_COLOR = "#b0909d";
+
   function radialTimeline() {
-    const arc = d3.arc();
+    // Rounding each band's own thickness (never fully round, so thin outer
+    // rings don't collapse into dots) softens the hard-edged sectors into
+    // pill-like strokes -- same spirit as the facade signs' own rounded
+    // neon tubing, applied to this abstract chart instead of lettering.
+    const arc = d3.arc().cornerRadius((d) => Math.min(d.dy / 2, 3));
 
     // Before 1945 first appears (currentYear is null) there's no progress
     // to show yet -- treat the overlay as sitting at the very start.
@@ -430,12 +571,16 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       d.startAngle = angleScale(d.logoStart - YEAR_START);
       d.endAngle = angleScale(d.logoEnd - YEAR_START);
       d.y = d.y + 50;
+      // Same accent color as this sign's own glow on the facade/logo wall,
+      // so this chart reads as "the same signs" rather than a generic plot.
+      d.color = logoAccentColor.get(normalizeLogoKey(d.logoName)) || TIMELINE_BASE_COLOR;
     });
 
     overlayBands.forEach(function (d) {
       d.startAngle = angleScale(d.logoStart - YEAR_START);
       d.endAngle = angleScale(progressYear - YEAR_START);
       d.y = d.y + 50;
+      d.color = logoAccentColor.get(normalizeLogoKey(d.logoName)) || TIMELINE_BASE_COLOR;
     });
 
     const timelineGrid = d3
@@ -472,12 +617,18 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
-      .style("fill", "#b0909d")
-      .on("mouseover", function () {
-        d3.select(this).style("fill", "teal");
+      .style("fill", (d) => d.color)
+      .style("--glow-color", (d) => d.color)
+      .on("mouseover", function (event, d) {
+        d3.select(this).style("stroke", "#fff").style("stroke-width", 1);
+        showTimelineTooltip(event, d);
+      })
+      .on("mousemove", function (event, d) {
+        showTimelineTooltip(event, d);
       })
       .on("mouseout", function () {
-        d3.select(this).style("fill", "#b0909d");
+        d3.select(this).style("stroke", null).style("stroke-width", null);
+        hideTimelineTooltip();
       });
 
     d3.select("#timelineSvg")
@@ -490,7 +641,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       .attr("d", function (d) {
         return arc.innerRadius(d.y).outerRadius(d.y + d.dy)(d);
       })
-      .style("fill", "green")
+      .style("fill", (d) => d.color)
+      .style("--glow-color", (d) => d.color)
+      // Lets hover/tooltip pass through to the .timeBand underneath even
+      // over the portion an overlay currently covers, so the hit area for
+      // a sign's tooltip is always its full lifespan arc, not just
+      // whatever's left unprogressed.
+      .style("pointer-events", "none")
       .style("display", (d) => {
         if (d.logoStart <= progressYear && d.logoEnd >= progressYear) {
           return "block";
@@ -499,6 +656,33 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         }
       });
   }
+
+  const timelineTooltip = document.getElementById("timeline-tooltip");
+
+  function showTimelineTooltip(event, d) {
+    if (!timelineTooltip) return;
+    timelineTooltip.innerHTML = "";
+    const nameEl = document.createElement("strong");
+    nameEl.textContent = d.logoName;
+    const yearsEl = document.createElement("div");
+    yearsEl.textContent = `${d.logoStart}–${d.logoEnd}`;
+    timelineTooltip.appendChild(nameEl);
+    timelineTooltip.appendChild(yearsEl);
+    const provenance = [d.provenienza, d.categoria].filter(Boolean).join(" · ");
+    if (provenance) {
+      const provEl = document.createElement("div");
+      provEl.textContent = provenance;
+      timelineTooltip.appendChild(provEl);
+    }
+    timelineTooltip.style.left = `${event.clientX}px`;
+    timelineTooltip.style.top = `${event.clientY - 12}px`;
+    timelineTooltip.style.opacity = "1";
+  }
+
+  function hideTimelineTooltip() {
+    if (timelineTooltip) timelineTooltip.style.opacity = "0";
+  }
+
   radialTimeline();
 
   // Set up scrollama
