@@ -225,7 +225,20 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     applyNeonGlow(svgMap.querySelector("#Logos"));
     logoAccentColor = buildLogoAccentColorMap(svgMap.querySelector("#Logos"));
     lazyBuildLogoWall(dataset, svgMap.querySelector("#Logos"), loghiSvg.node());
-    groups = d3.select("#Logos").selectAll("[data-logo]");
+    // Only the node where each logo starts gets the year-based opacity
+    // toggle: one with no [data-logo] ancestor, or one whose name differs
+    // from its nearest ancestor's (a distinct sign nested inside another,
+    // see sync-data-logo.py). Nested parts of the same sign inherit the
+    // fade from it -- toggling them too would write an inline opacity:1
+    // over their own authored opacity (e.g. Figma's dimmed, blurred
+    // "broken neon" letters in farmacia1/2), flattening them to full.
+    groups = d3
+      .select("#Logos")
+      .selectAll("[data-logo]")
+      .filter(function () {
+        const owner = this.parentElement.closest("[data-logo]");
+        return !owner || owner.dataset.logo !== this.dataset.logo;
+      });
 
     warnAboutUnmatchedLogos(dataset, groups);
 
@@ -344,7 +357,20 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         wrapper.appendChild(group);
       }
 
-      const glowUnits = parts.length > 0 ? parts : [group];
+      const glowUnits = (parts.length > 0 ? parts : [group]).map((unit) => {
+        // A part that carries its own authored filter or opacity (Figma's
+        // layer blur on dimmed "broken neon" letters, e.g. coopFarmaceutica2)
+        // would lose both to .glow-unit: the CSS drop-shadow filter replaces
+        // the filter attribute, and the flicker animation overrides the
+        // opacity. Glow and flicker go on a wrapper around it instead, so
+        // the part keeps its own blur and dimming inside the glow.
+        if (unit === group) return unit;
+        if (!unit.hasAttribute("filter") && !unit.hasAttribute("opacity")) return unit;
+        const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        unit.parentNode.insertBefore(wrapper, unit);
+        wrapper.appendChild(unit);
+        return wrapper;
+      });
       glowUnits.forEach((unit) => {
         unit.classList.add("glow-unit");
         const color = pickAccentColor(unit);
