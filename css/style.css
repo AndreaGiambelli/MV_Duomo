@@ -172,6 +172,14 @@ body {
     drop-shadow(0 0 7px color-mix(in srgb, var(--glow-color, #fff) 28%, transparent));
 }
 
+/* Signs in duomoLights.js's NO_GLOW_LOGOS aren't self-illuminated (painted
+   or printed, lit only by the street), so on the facade they sit at a lower
+   exposure than the glowing neon around them. Facade only -- the logo wall
+   is a catalog, where every sign stays at full brightness. */
+#Logos .unlit {
+  filter: brightness(0.55) saturate(0.85);
+}
+
 /* Cheap 2-layer glow (no color-mix, half the drop-shadow layers) for the
    two high-count views: #logo-wall-grid's ~120 tiles (thousands of cloned
    paths) and the round timeline's ~270 arcs. Visibly still glows, just

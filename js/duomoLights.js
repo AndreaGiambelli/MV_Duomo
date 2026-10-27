@@ -350,7 +350,12 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     if (!logosGroup) return;
     Array.from(logosGroup.children).forEach((group) => {
       if (group.tagName !== "g" || !group.dataset.logo) return;
-      if (NO_GLOW_LOGOS.has(normalizeLogoKey(group.dataset.logo))) return;
+      if (NO_GLOW_LOGOS.has(normalizeLogoKey(group.dataset.logo))) {
+        // painted/printed signs, not self-lit -- dimmed via CSS (.unlit)
+        // so they read as lit only by the street, not glowing on their own.
+        group.classList.add("unlit");
+        return;
+      }
       group.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
 
       const parts = Array.from(group.children).filter((c) => c.tagName === "g");
