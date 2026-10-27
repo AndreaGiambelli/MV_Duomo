@@ -32,18 +32,21 @@ body {
    which one is display:none. */
 #map .piazza-layer {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  /* the SVG's embedded reference image (the art the logos were drawn on)
+     is a rect at x=4 y=4.20898 w=1128 h=629.581 inside the 1129x600 crop
+     viewBox -- not flush with the corner. These percentages put the layer
+     at exactly that rect, so the video/plate land on the same pixels as
+     the logos; flush 0/0 + 100% width left them ~4px off at desktop size. */
+  left: calc(100% * 4 / 1129);
+  top: calc(100% * 4.20898 / 600);
+  width: calc(100% * 1128 / 1129);
+  /* the rect runs 629.581 units tall, past the 600-unit crop; the SVG
+     clips that overflow, so stop at #map's bottom edge instead of
+     spilling below it. cover + top then scales by width (the box is
+     wider than 1376:768), reproducing the rect's scale and top-left
+     anchor while trimming only the bottom, same as the SVG does. */
+  height: calc(100% - 100% * 4.20898 / 600);
   object-fit: cover;
-  /* the crop viewBox (1129x600) is a slightly different aspect ratio than
-     the source art (1376x768); cover's default center crop would therefore
-     trim a bit off both top and bottom. The original embedded reference
-     image sat almost flush with the top of that crop (y=4.2 of 600) with
-     all the excess height falling below it, so anchoring to the top here
-     (instead of center) reproduces that same placement and keeps both
-     layers aligned with the logo positions. */
   object-position: top;
   z-index: 0;
   pointer-events: none;
@@ -90,6 +93,10 @@ body {
    it must sit above it, with the facade-drawing paths hidden at runtime so
    only #Logos is opaque and the video shows through everywhere else. */
 #map svg {
+  /* block, not the default inline: an inline svg leaves a ~4px baseline
+     gap under it, making #map taller than the artwork, which would throw
+     off the percentage-based .piazza-layer placement above. */
+  display: block;
   position: relative;
   z-index: 1;
 }
