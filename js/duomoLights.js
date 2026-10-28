@@ -192,6 +192,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let seqInTail = false;
   let seqLastFrame = null;
   let seqScrubbing = false;
+  // a seek in flight: until the audio lands there, its currentTime may
+  // still read the old spot, which would snap everything straight back.
+  let seqSeekTarget = null;
 
   function seqBlackOpacity(t) {
     if (t < SEQ_FADE_IN_START) return 1;
@@ -262,6 +265,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       song.pause();
       song.currentTime = song.duration;
     } else {
+      seqSeekTarget = t;
       song.currentTime = t;
       if (moving && song.paused) song.play();
     }
@@ -280,7 +284,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // the year and the readout all stay locked to the audio.
   function seqFrame(now) {
     if (seqStarted && !seqEnded) {
-      if (!seqInTail) {
+      if (seqScrubbing) {
+        // the handle is the clock while it's held, whatever the audio says
+        seqClock = +seqScrub.value;
+      } else if (seqSeekTarget !== null) {
+        seqClock = seqSeekTarget;
+        if (!song.seeking) seqSeekTarget = null;
+      } else if (!seqInTail) {
         if (song.ended) seqInTail = true;
         else seqClock = song.currentTime;
       }
@@ -300,7 +310,11 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   requestAnimationFrame(seqFrame);
 
   seqScrub.addEventListener("pointerdown", () => (seqScrubbing = true));
-  seqScrub.addEventListener("change", () => (seqScrubbing = false));
+  // released anywhere, not just over the bar (change doesn't fire at all
+  // when the handle ends up where it started)
+  ["pointerup", "pointercancel"].forEach((type) =>
+    window.addEventListener(type, () => (seqScrubbing = false))
+  );
   seqScrub.addEventListener("input", () => seekSequence(+seqScrub.value));
 
   playButton.on("click", togglePlay);

@@ -161,14 +161,14 @@ body {
 }
 
 /* the MM title card, shown on the black screen at the start and end; its
-   own background is pure black, so it melts into #seq-black. Sized to the
-   screenshot's 2x-retina native size (894px -> 447px) relative to the
-   viz's 1008px desktop width, and kept dead center. */
+   own background is pure black, so it melts into #seq-black. 490px wide
+   when the viz is 1920px wide, scaled proportionally at any other width,
+   and kept dead center. */
 #seq-title {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 44.3%;
+  width: calc(100% * 490 / 1920);
   transform: translate(-50%, -50%);
   z-index: 4;
   opacity: 0;
@@ -374,7 +374,11 @@ body {
   font-weight: 700;
 }
 
+/* The text blocks below (and #title-wrapper) scroll over the sticky #map
+   and sit above it, so they'd swallow every click meant for #seq-scrub
+   underneath -- they're plain text, so let pointer events fall through. */
 .scroll-p {
+  pointer-events: none;
   position: relative;
   min-height: 550px;
   padding: 0 20px;
@@ -396,20 +400,39 @@ body {
   -moz-transform: translate3d(0, 0, 0);
   transform: translate3d(0, 0, 0);
   z-index: 0;
+  /* a 1200px-tall, mostly empty sticky box that slides over #map --
+     clicks fall through it except on its own controls (re-enabled on
+     .slider-controls and the year slider's shapes below). */
+  pointer-events: none;
 }
 
 .slider-controls {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 12px;
   margin-bottom: 10px;
 }
 
+/* The year slider's svg is a 1000x100 box, mostly empty, that ends up over
+   the bottom of #map (and #seq-scrub) near the end of the page; only its
+   drawn shapes (track, handle, ticks) take the pointer, the empty rest of
+   the box lets clicks through. */
 .slider-svg {
   display: block;
+  pointer-events: none;
+}
+
+.slider-svg * {
+  pointer-events: auto;
+}
+
+.slider-svg text {
+  pointer-events: none;
 }
 
 #title-wrapper {
+  pointer-events: none;
   position: relative;
   height: 800px;
 }
