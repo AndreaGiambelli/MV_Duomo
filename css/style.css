@@ -147,6 +147,60 @@ body {
   pointer-events: none;
 }
 
+/* storyboard overlays (see the "A" sequence in duomoLights.js): a black
+   card over the whole viz area -- above the year/karaoke captions too --
+   whose opacity the sequence drives frame by frame, and a red elapsed-time
+   readout above everything for syncing the recording against the track. */
+#seq-black {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* the MM title card, shown on the black screen at the start and end; its
+   own background is pure black, so it melts into #seq-black. Sized to the
+   screenshot's 2x-retina native size (894px -> 447px) relative to the
+   viz's 1008px desktop width, and kept dead center. */
+#seq-title {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44.3%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* time-scrubbing bar, on the same line as #seq-timer, running from the
+   left edge up to just before it. */
+#seq-scrub {
+  position: absolute;
+  left: 12px;
+  right: 90px;
+  bottom: 10px;
+  height: 21px;
+  margin: 0;
+  z-index: 5;
+  accent-color: #ff2a2a;
+  cursor: pointer;
+}
+
+#seq-timer {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  z-index: 5;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+  color: #ff2a2a;
+  pointer-events: none;
+}
+
 /* every element duomoLights.js toggles on/off by year (top-level signs and
    their nested parts alike) carries this same data attribute, so a single
    rule covers the whole fade in both directions. */

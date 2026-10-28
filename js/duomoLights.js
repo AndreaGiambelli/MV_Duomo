@@ -71,7 +71,6 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   d3.select("#slider").selectAll(".tick").select("text").attr("y", "16");
 
   let moving = false;
-  let timer;
   const playButton = d3.select("#play-button");
   const song = document.getElementById("song");
   setUpKaraoke(song);
@@ -109,14 +108,24 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let currentYear = null;
 
   // Two fixed landmarks in the audio track drive every other year's timing:
-  // 1946 at 22s and 2000 (the last year) at 3:00. The per-year step is
-  // whatever makes those two exact, and 1945 sits one step before 1946 --
-  // nothing shows before that.
-  const YEAR_1946_AUDIO_SEC = 22;
+  // 1945 (the first year) at 0:20.5 and 2000 (the last year) at 3:00. The
+  // per-year step is whatever makes those two exact -- nothing shows
+  // before 1945, and 2000 holds from 3:00 on.
+  const YEAR_1945_AUDIO_SEC = 20.5;
   const YEAR_2000_AUDIO_SEC = 3 * 60;
-  const STEP_INTERVAL_MS =
-    ((YEAR_2000_AUDIO_SEC - YEAR_1946_AUDIO_SEC) * 1000) / (endYear - 1946);
-  const PREROLL_MS = YEAR_1946_AUDIO_SEC * 1000 - STEP_INTERVAL_MS;
+  const YEAR_STEP_SEC =
+    (YEAR_2000_AUDIO_SEC - YEAR_1945_AUDIO_SEC) / (endYear - startYear);
+
+  // The year on screen is read straight off the song's position (see
+  // seqFrame below) instead of counted by timers: a timer started on the
+  // key press runs ahead of audio that takes a moment to actually start,
+  // and setInterval drifts further over 3 minutes -- deriving it from
+  // currentTime keeps every year frame-locked to the track, through
+  // pauses and seeks too.
+  function yearAtAudioTime(t) {
+    if (t < YEAR_1945_AUDIO_SEC) return null;
+    return Math.min(endYear, startYear + Math.floor((t - YEAR_1945_AUDIO_SEC) / YEAR_STEP_SEC));
+  }
 
   const mapStart = new Map();
   const mapEnd = new Map();
@@ -127,21 +136,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     mapEnd.set(key, +d.logoEnd);
   });
 
-  let prerollTimer = null;
-
-  function startYearStepping() {
-    currentYear = startYear;
-    updateProspetto(currentYear);
-    radialTimeline();
-    slider.value(currentYear);
-    timer = setInterval(step, STEP_INTERVAL_MS);
-  }
-
   function togglePlay() {
     if (playButton.text() == "Pause") {
       moving = false;
-      clearInterval(timer);
-      clearTimeout(prerollTimer);
       playButton.text("Play");
       song.pause();
     } else {
@@ -157,17 +154,154 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         updateProspetto(currentYear);
         radialTimeline();
       }
-      song.play();
-      // On a fresh start wait out the pre-roll so 1945/1946 land on the
-      // facade in sync with the track; resuming after a mid-sequence pause
-      // skips straight back into the regular per-year cadence.
-      if (currentYear === null) {
-        prerollTimer = setTimeout(startYearStepping, PREROLL_MS);
-      } else {
-        timer = setInterval(step, STEP_INTERVAL_MS);
-      }
+      if (song.currentTime === 0) startSequence();
+      // the track (3:10.7) ends before the storyboard does (3:20) -- resuming
+      // in that tail must not restart it from the top.
+      if (!seqInTail) song.play();
     }
   }
+
+  // Storyboard for the recorded video, timed on the song's clock (seconds):
+  // black until 0:14 (with the MM title card shown 0:02-0:05), fading to the
+  // bare street plate by 0:17; the usual year sequence (1945 lands at
+  // 0:20.5, 2000 at 3:00) held on 2000 until it fades back to black over
+  // 3:02-3:05; black (title card again 3:16-3:19) until 3:20, then it stops.
+  // "Black" is #seq-black, covering only the viz area, never the page.
+  const SEQ_FADE_IN_START = 14;
+  const SEQ_FADE_IN_END = 17;
+  const SEQ_FADE_OUT_START = 3 * 60 + 2;
+  const SEQ_FADE_OUT_END = 3 * 60 + 5;
+  const SEQ_END = 3 * 60 + 20;
+  // Things shown on the black screen ease in from their start time and
+  // out from their end time, each over this long.
+  const SEQ_CARD_EASE = 0.5;
+  const SEQ_TITLE_WINDOWS = [
+    [2, 5],
+    [3 * 60 + 16, 3 * 60 + 19],
+  ];
+  const seqBlack = document.getElementById("seq-black");
+  const seqTitle = document.getElementById("seq-title");
+  const seqTimer = document.getElementById("seq-timer");
+  const seqScrub = document.getElementById("seq-scrub");
+  seqScrub.max = SEQ_END;
+  let seqClock = 0;
+  let seqStarted = false;
+  let seqEnded = false;
+  // past the song's end (3:10.7 -> 3:20) there's no audio clock to read,
+  // so the sequence runs on frame time there instead.
+  let seqInTail = false;
+  let seqLastFrame = null;
+  let seqScrubbing = false;
+
+  function seqBlackOpacity(t) {
+    if (t < SEQ_FADE_IN_START) return 1;
+    if (t < SEQ_FADE_IN_END)
+      return 1 - (t - SEQ_FADE_IN_START) / (SEQ_FADE_IN_END - SEQ_FADE_IN_START);
+    if (t < SEQ_FADE_OUT_START) return 0;
+    if (t < SEQ_FADE_OUT_END)
+      return (t - SEQ_FADE_OUT_START) / (SEQ_FADE_OUT_END - SEQ_FADE_OUT_START);
+    return 1;
+  }
+
+  function easeInOut(x) {
+    const c = Math.min(1, Math.max(0, x));
+    return c * c * (3 - 2 * c);
+  }
+
+  function seqTitleOpacity(t) {
+    for (const [from, to] of SEQ_TITLE_WINDOWS) {
+      if (t >= from && t < to + SEQ_CARD_EASE) {
+        return Math.min(
+          easeInOut((t - from) / SEQ_CARD_EASE),
+          1 - easeInOut((t - to) / SEQ_CARD_EASE)
+        );
+      }
+    }
+    return 0;
+  }
+
+  function formatSeqClock(t) {
+    const tenths = Math.floor(t * 10);
+    const min = Math.floor(tenths / 600);
+    const sec = Math.floor(tenths / 10) % 60;
+    return `${String(min).padStart(2, "0")}:${String(sec).padStart(2, "0")}.${tenths % 10}`;
+  }
+
+  function startSequence() {
+    seqClock = 0;
+    seqStarted = true;
+    seqEnded = false;
+    seqInTail = false;
+    seqLastFrame = null;
+  }
+
+  function endSequence() {
+    seqClock = SEQ_END;
+    seqEnded = true;
+    seqInTail = false;
+    moving = false;
+    playButton.text("Play");
+    song.pause();
+    song.currentTime = 0;
+    // back to the pre-1945 state (bare plate, no signs) behind the black,
+    // so the next press starts the storyboard cleanly from the top.
+    currentYear = null;
+    updateProspetto(currentYear);
+    radialTimeline();
+  }
+
+  // Jump the whole storyboard to t seconds, playing or paused -- the audio
+  // follows, and so (next frame) do the year, overlays and readout.
+  function seekSequence(t) {
+    seqStarted = true;
+    seqEnded = false;
+    seqClock = t;
+    seqLastFrame = null;
+    seqInTail = t >= song.duration;
+    if (seqInTail) {
+      song.pause();
+      song.currentTime = song.duration;
+    } else {
+      song.currentTime = t;
+      if (moving && song.paused) song.play();
+    }
+  }
+
+  function syncYearToClock() {
+    const year = yearAtAudioTime(seqClock);
+    if (year === currentYear) return;
+    currentYear = year;
+    updateProspetto(currentYear);
+    radialTimeline();
+    if (year !== null) slider.value(year);
+  }
+
+  // While the song plays its own currentTime is the clock, so the overlays,
+  // the year and the readout all stay locked to the audio.
+  function seqFrame(now) {
+    if (seqStarted && !seqEnded) {
+      if (!seqInTail) {
+        if (song.ended) seqInTail = true;
+        else seqClock = song.currentTime;
+      }
+      if (seqInTail && moving && seqLastFrame !== null) {
+        seqClock += (now - seqLastFrame) / 1000;
+      }
+      syncYearToClock();
+      if (seqClock >= SEQ_END) endSequence();
+    }
+    seqLastFrame = now;
+    seqTimer.textContent = formatSeqClock(seqClock);
+    seqBlack.style.opacity = seqStarted ? seqBlackOpacity(seqClock) : 0;
+    seqTitle.style.opacity = seqStarted ? seqTitleOpacity(seqClock) : 0;
+    if (!seqScrubbing) seqScrub.value = seqClock;
+    requestAnimationFrame(seqFrame);
+  }
+  requestAnimationFrame(seqFrame);
+
+  seqScrub.addEventListener("pointerdown", () => (seqScrubbing = true));
+  seqScrub.addEventListener("change", () => (seqScrubbing = false));
+  seqScrub.addEventListener("input", () => seekSequence(+seqScrub.value));
 
   playButton.on("click", togglePlay);
 
@@ -557,29 +691,6 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     return false;
   }
 
-  function step() {
-    // Advance before displaying: the first interval tick after Play is
-    // pressed fires one STEP_INTERVAL_MS in, so if it re-displayed the
-    // already-current year (as before) that year would sit on screen for
-    // double every other year's dwell time before the second tick moved it
-    // on. Incrementing first keeps every year's dwell time equal.
-    currentYear = currentYear + 1;
-
-    if (currentYear > endYear) {
-      moving = false;
-      currentYear = startYear;
-      clearInterval(timer);
-      playButton.text("Play");
-      song.pause();
-      song.currentTime = 0;
-      return;
-    }
-
-    updateProspetto(currentYear);
-    radialTimeline();
-    slider.value(currentYear);
-  }
-
   function updateProspetto(h) {
     fadeTextTo(document.getElementById("value"), h);
     fadeTextTo(document.getElementById("year-display"), h);
@@ -801,9 +912,9 @@ function parseSrt(text) {
     });
 }
 
-// Drives #karaoke-line off the song's own currentTime (rather than the
-// year-advancing setInterval in step()) so the lyrics stay in sync with the
-// audio even though the two timelines don't share the same duration.
+// Drives #karaoke-line off the song's own currentTime, like the year
+// sequence itself (see yearAtAudioTime), so the lyrics stay in sync with
+// the audio.
 function setUpKaraoke(song) {
   const karaokeLine = document.getElementById("karaoke-line");
   fetch("karaoke.srt" + CACHE_BUST)
