@@ -163,7 +163,7 @@ body {
   pointer-events: none;
 }
 
-/* the MM title card, shown on the black screen at the start and end; its
+/* the MM title card, shown on the black screen at the start; its
    own background is pure black, so it melts into #seq-black. 490px wide
    when the viz is 1920px wide, scaled proportionally at any other width,
    and kept dead center. */
@@ -206,6 +206,26 @@ body {
     drop-shadow(0 0 2.5px color-mix(in srgb, var(--glow-color, #fff) 75%, transparent))
     drop-shadow(0 0 6px color-mix(in srgb, var(--glow-color, #fff) 50%, transparent))
     drop-shadow(0 0 12px color-mix(in srgb, var(--glow-color, #fff) 28%, transparent));
+}
+
+/* end credits (svg/credits.svg), rolling up the black screen in scene 3.
+   Drawn at the same 1920-frame scale as the title neons -- duomoLights.js
+   sizes it from the file's own width out of 1920 -- centred; it slides
+   from below the bottom edge to past the top, and this box clips it to
+   the viz area. */
+#seq-credits {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#seq-credits svg {
+  display: block;
+  height: auto;
+  margin: 0 auto;
+  will-change: transform;
 }
 
 /* time-scrubbing bar, on the same line as #seq-timer, running from the

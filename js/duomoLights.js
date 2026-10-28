@@ -167,7 +167,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // black until 0:14 (with the MM title card shown 0:02-0:05), fading to the
   // bare street plate by 0:17; the usual year sequence (1945 lands at
   // 0:20.3, 2000 at 3:00) held on 2000 until it fades back to black over
-  // 3:02-3:05; black (title card again 3:16-3:19) until 3:20, then it stops.
+  // 3:02-3:05; black with the end credits rolling until 3:18.5, then black
+  // until 3:20, when it stops.
   // "Black" is #seq-black, covering only the viz area, never the page.
   const SEQ_FADE_IN_START = 14;
   const SEQ_FADE_IN_END = 17;
@@ -177,10 +178,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // Things shown on the black screen ease in from their start time and
   // out from their end time, each over this long.
   const SEQ_CARD_EASE = 0.5;
-  const SEQ_TITLE_WINDOWS = [
-    [2, 5],
-    [3 * 60 + 16, 3 * 60 + 19],
-  ];
+  const SEQ_TITLE_WINDOWS = [[2, 5]];
   // The song-title neons (svg/titles.svg) light up one by one on the black
   // screen after the MM card, one every SEQ_NEON_EVERY seconds from
   // SEQ_NEON_FIRST, each with the facade signs' 0.35s fade-in, and all go
@@ -197,6 +195,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const SEQ_PLACE_FROM = SEQ_FADE_IN_START;
   const SEQ_PLACE_UNTIL = 19.8;
   const yearDisplay = document.getElementById("year-display");
+  // End credits roll up the black screen at a steady pace: their top edge
+  // enters from the bottom once the scene has gone fully black, and their
+  // bottom edge leaves the top 1.5s before the end.
+  const SEQ_CREDITS_FROM = SEQ_FADE_OUT_END;
+  const SEQ_CREDITS_UNTIL = SEQ_END - 1.5;
+  const seqCredits = document.getElementById("seq-credits");
+  let seqCreditsSvg = null;
   let seqPlaceShown = false;
   const seqBlack = document.getElementById("seq-black");
   const seqTitle = document.getElementById("seq-title");
@@ -252,6 +257,26 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       1 - easeInOut((t - SEQ_FADE_IN_START) / SEQ_CARD_EASE)
     );
   }
+
+  function updateSeqCredits(t) {
+    const p = (t - SEQ_CREDITS_FROM) / (SEQ_CREDITS_UNTIL - SEQ_CREDITS_FROM);
+    const rolling = seqCreditsSvg !== null && p >= 0 && p <= 1;
+    seqCredits.style.display = rolling ? "" : "none";
+    if (!rolling) return;
+    const viewH = seqCredits.clientHeight;
+    const rollH = seqCreditsSvg.getBoundingClientRect().height;
+    seqCreditsSvg.style.transform = `translateY(${viewH - (viewH + rollH) * p}px)`;
+  }
+
+  d3.xml("svg/credits.svg" + CACHE_BUST).then((xml) => {
+    const svg = document.importNode(xml.documentElement, true);
+    // drawn at the 1920-frame scale: its own width (e.g. 905) out of 1920
+    svg.style.width = `${(+svg.getAttribute("width") / 1920) * 100}%`;
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    seqCredits.appendChild(svg);
+    seqCreditsSvg = svg;
+  });
 
   function updateSeqNeons(t) {
     let anyLit = false;
@@ -476,6 +501,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     seqBlack.style.opacity = seqStarted ? seqBlackOpacity(seqClock) : 0;
     seqTitle.style.opacity = seqStarted ? seqTitleOpacity(seqClock) : 0;
     updateSeqNeons(seqStarted ? seqClock : -1);
+    updateSeqCredits(seqStarted ? seqClock : -1);
     if (!seqScrubbing) seqScrub.value = seqClock;
     requestAnimationFrame(seqFrame);
   }
