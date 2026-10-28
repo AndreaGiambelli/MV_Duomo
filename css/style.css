@@ -125,6 +125,9 @@ body {
   letter-spacing: 0.06em;
   color: #cdc6ad;
   font-variant-numeric: tabular-nums;
+  /* also carries the "Piazza del Duomo, Milano" caption before 1945 --
+     keep it on one line despite the narrow shrink-to-fit box */
+  white-space: nowrap;
   pointer-events: none;
 }
 

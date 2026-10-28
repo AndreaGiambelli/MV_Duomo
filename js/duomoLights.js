@@ -189,6 +189,15 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const SEQ_NEON_FIRST = 6;
   const SEQ_NEON_EVERY = 1;
   const SEQ_NEON_FADE = 0.35;
+  // Before any year is on screen, the year caption's slot names the place
+  // instead -- from when the street starts fading in until shortly before
+  // 1945 takes the slot over (fading out by then, so 1945 arrives on a
+  // blank caption, see fadeTextTo).
+  const SEQ_PLACE_CAPTION = "Piazza del Duomo, Milano";
+  const SEQ_PLACE_FROM = SEQ_FADE_IN_START;
+  const SEQ_PLACE_UNTIL = 19.8;
+  const yearDisplay = document.getElementById("year-display");
+  let seqPlaceShown = false;
   const seqBlack = document.getElementById("seq-black");
   const seqTitle = document.getElementById("seq-title");
   const seqTitles = document.getElementById("seq-titles");
@@ -421,6 +430,17 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     }
   }
 
+  function syncPlaceCaption() {
+    const show =
+      currentYear === null && seqClock >= SEQ_PLACE_FROM && seqClock < SEQ_PLACE_UNTIL;
+    if (show === seqPlaceShown) return;
+    seqPlaceShown = show;
+    if (show) fadeTextTo(yearDisplay, SEQ_PLACE_CAPTION);
+    // leaving the window by reaching a year: updateProspetto() already put
+    // that year in the slot, so only blank it when no year took over
+    else if (currentYear === null) fadeTextTo(yearDisplay, "");
+  }
+
   function syncYearToClock() {
     const year = yearAtAudioTime(seqClock);
     if (year === currentYear) return;
@@ -448,6 +468,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         seqClock += (now - seqLastFrame) / 1000;
       }
       syncYearToClock();
+      syncPlaceCaption();
       if (seqClock >= SEQ_END) endSequence();
     }
     seqLastFrame = now;
