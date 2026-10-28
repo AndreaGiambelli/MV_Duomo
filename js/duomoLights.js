@@ -181,8 +181,18 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     [2, 5],
     [3 * 60 + 16, 3 * 60 + 19],
   ];
+  // The song-title neons (svg/titles.svg) light up one by one on the black
+  // screen after the MM card, one every SEQ_NEON_EVERY seconds from
+  // SEQ_NEON_FIRST, each with the facade signs' 0.35s fade-in, and all go
+  // out together over SEQ_CARD_EASE from SEQ_FADE_IN_START, as the street
+  // starts to show through.
+  const SEQ_NEON_FIRST = 6;
+  const SEQ_NEON_EVERY = 1;
+  const SEQ_NEON_FADE = 0.35;
   const seqBlack = document.getElementById("seq-black");
   const seqTitle = document.getElementById("seq-title");
+  const seqTitles = document.getElementById("seq-titles");
+  let seqNeons = [];
   const seqTimer = document.getElementById("seq-timer");
   const seqScrub = document.getElementById("seq-scrub");
   seqScrub.max = SEQ_END;
@@ -224,6 +234,144 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     }
     return 0;
   }
+
+  function seqNeonOpacity(t, index) {
+    const on = SEQ_NEON_FIRST + index * SEQ_NEON_EVERY;
+    if (t < on || t >= SEQ_FADE_IN_START + SEQ_CARD_EASE) return 0;
+    return Math.min(
+      easeInOut((t - on) / SEQ_NEON_FADE),
+      1 - easeInOut((t - SEQ_FADE_IN_START) / SEQ_CARD_EASE)
+    );
+  }
+
+  function updateSeqNeons(t) {
+    let anyLit = false;
+    seqNeons.forEach((sign, i) => {
+      const o = seqNeonOpacity(t, i);
+      if (o > 0) anyLit = true;
+      sign.style.opacity = o;
+    });
+    // nothing lit -> drop the whole layer, so its glow filters cost nothing
+    // for the rest of the video
+    seqTitles.style.display = anyLit ? "" : "none";
+  }
+
+  // titles.svg comes out of Figma as one flat list of paths, so each sign
+  // is rebuilt here: paths whose boxes sit within SEQ_NEON_GAP units of
+  // each other belong together (signs are 40+ apart; the widest gap inside
+  // one sign is ~20). Every coloured run of paths gets its own .glow-unit
+  // in its own colour; the dark panels behind the lettering stay unlit.
+  const SEQ_NEON_GAP = 30;
+  function buildSeqNeons(svg) {
+    const shapes = Array.from(svg.children).filter((el) => el.tagName !== "defs");
+    const boxes = shapes.map((el) => el.getBBox());
+    const owner = shapes.map((_, i) => i);
+    const root = (i) => (owner[i] === i ? i : (owner[i] = root(owner[i])));
+    for (let a = 0; a < boxes.length; a++) {
+      for (let b = a + 1; b < boxes.length; b++) {
+        const A = boxes[a];
+        const B = boxes[b];
+        if (
+          A.x - SEQ_NEON_GAP < B.x + B.width &&
+          B.x - SEQ_NEON_GAP < A.x + A.width &&
+          A.y - SEQ_NEON_GAP < B.y + B.height &&
+          B.y - SEQ_NEON_GAP < A.y + A.height
+        ) {
+          owner[root(a)] = root(b);
+        }
+      }
+    }
+
+    const signsByRoot = new Map();
+    shapes.forEach((el, i) => {
+      const r = root(i);
+      if (!signsByRoot.has(r)) signsByRoot.set(r, []);
+      signsByRoot.get(r).push(i);
+    });
+
+    const svgNS = "http://www.w3.org/2000/svg";
+    const signs = Array.from(signsByRoot.values()).map((members) => {
+      const sign = document.createElementNS(svgNS, "g");
+      sign.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
+      let run = null;
+      let runColor = null;
+      members.forEach((i) => {
+        const el = shapes[i];
+        const color = neonColorOf(el);
+        if (!color) {
+          sign.appendChild(el);
+          run = null;
+          return;
+        }
+        if (!run || color !== runColor) {
+          run = document.createElementNS(svgNS, "g");
+          run.classList.add("glow-unit");
+          run.style.setProperty("--glow-color", color);
+          runColor = color;
+          sign.appendChild(run);
+        }
+        run.appendChild(el);
+      });
+      const xs = members.map((i) => boxes[i].x + boxes[i].width / 2);
+      const ys = members.map((i) => boxes[i].y + boxes[i].height / 2);
+      sign.center = [
+        xs.reduce((s, v) => s + v, 0) / xs.length,
+        ys.reduce((s, v) => s + v, 0) / ys.length,
+      ];
+      return sign;
+    });
+
+    // Reveal order: start nearest the middle, then always jump to the sign
+    // farthest from the one just lit, so they pop up all over the screen
+    // rather than sweeping across it.
+    const mid = [960, 540];
+    const dist = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1]);
+    const remaining = signs.slice().sort((a, b) => dist(a.center, mid) - dist(b.center, mid));
+    const ordered = [remaining.shift()];
+    while (remaining.length) {
+      const last = ordered[ordered.length - 1].center;
+      remaining.sort((a, b) => dist(b.center, last) - dist(a.center, last));
+      ordered.push(remaining.shift());
+    }
+    ordered.forEach((sign) => {
+      sign.style.opacity = 0;
+      svg.appendChild(sign);
+    });
+    return ordered;
+  }
+
+  // A shape's neon colour: its fill when that's a real colour (lettering
+  // like the blue "ME" with only a hairline white outline glows blue), else
+  // its stroke (outlined tubes, panels with a coloured border) -- null for
+  // the near-black panels and backdrops, which shouldn't glow at all.
+  function neonColorOf(el) {
+    return brightColor(el.getAttribute("fill")) || brightColor(el.getAttribute("stroke"));
+  }
+
+  function brightColor(raw) {
+    if (!raw || raw === "none") return null;
+    const probe = document.createElement("canvas").getContext("2d");
+    probe.fillStyle = raw;
+    const hex = probe.fillStyle;
+    if (!/^#[0-9a-f]{6}$/i.test(hex)) return null;
+    const max = Math.max(
+      parseInt(hex.slice(1, 3), 16),
+      parseInt(hex.slice(3, 5), 16),
+      parseInt(hex.slice(5, 7), 16)
+    );
+    return max < 70 ? null : hex;
+  }
+
+  d3.xml("svg/titles.svg" + CACHE_BUST).then((xml) => {
+    const svg = document.importNode(xml.documentElement, true);
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    seqTitles.appendChild(svg);
+    // getBBox() needs the layer rendered; the next frame hides it again
+    // until the first neon lights up.
+    seqTitles.style.display = "";
+    seqNeons = buildSeqNeons(svg);
+  });
 
   function formatSeqClock(t) {
     const tenths = Math.floor(t * 10);
@@ -306,6 +454,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     seqTimer.textContent = formatSeqClock(seqClock);
     seqBlack.style.opacity = seqStarted ? seqBlackOpacity(seqClock) : 0;
     seqTitle.style.opacity = seqStarted ? seqTitleOpacity(seqClock) : 0;
+    updateSeqNeons(seqStarted ? seqClock : -1);
     if (!seqScrubbing) seqScrub.value = seqClock;
     requestAnimationFrame(seqFrame);
   }
