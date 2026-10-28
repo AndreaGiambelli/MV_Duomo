@@ -108,10 +108,12 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let currentYear = null;
 
   // Two fixed landmarks in the audio track drive every other year's timing:
-  // 1945 (the first year) at 0:20.5 and 2000 (the last year) at 3:00. The
+  // 1945 (the first year) at 0:20.3 and 2000 (the last year) at 3:00. The
   // per-year step is whatever makes those two exact -- nothing shows
-  // before 1945, and 2000 holds from 3:00 on.
-  const YEAR_1945_AUDIO_SEC = 20.5;
+  // before 1945, and 2000 holds from 3:00 on. These are when each year
+  // visibly *starts* -- its signs' fade-in, the crowd video and its caption
+  // all begin right on the mark.
+  const YEAR_1945_AUDIO_SEC = 20.3;
   const YEAR_2000_AUDIO_SEC = 3 * 60;
   const YEAR_STEP_SEC =
     (YEAR_2000_AUDIO_SEC - YEAR_1945_AUDIO_SEC) / (endYear - startYear);
@@ -164,7 +166,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // Storyboard for the recorded video, timed on the song's clock (seconds):
   // black until 0:14 (with the MM title card shown 0:02-0:05), fading to the
   // bare street plate by 0:17; the usual year sequence (1945 lands at
-  // 0:20.5, 2000 at 3:00) held on 2000 until it fades back to black over
+  // 0:20.3, 2000 at 3:00) held on 2000 until it fades back to black over
   // 3:02-3:05; black (title card again 3:16-3:19) until 3:20, then it stops.
   // "Black" is #seq-black, covering only the viz area, never the page.
   const SEQ_FADE_IN_START = 14;
@@ -899,6 +901,15 @@ const TEXT_FADE_MS = 150;
 function fadeTextTo(el, text) {
   const next = text === null ? "" : String(text);
   if (el.textContent === next) return;
+  // Nothing on screen to fade out (e.g. 1945's caption arriving from blank):
+  // skip the dip and fade the new text straight in, so it starts on the
+  // same frame as everything else instead of TEXT_FADE_MS late.
+  if (el.textContent === "") {
+    el.textContent = next;
+    el.style.opacity = 1;
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: TEXT_FADE_MS, easing: "ease" });
+    return;
+  }
   el.style.opacity = 0;
   setTimeout(() => {
     el.textContent = next;
