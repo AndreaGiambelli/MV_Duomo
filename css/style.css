@@ -561,3 +561,46 @@ body {
 #play-button:hover {
   background-color: #696969;
 }
+
+/* Offline render (index.html?render, see render/render.mjs): only the viz,
+   filling the window edge to edge. #map keeps its own 1129:600 shape at the
+   window's full height, centred, so on a 16:9 frame the (vignetted) sides
+   are cropped a little rather than letterboxing the top and bottom. */
+body.render-mode {
+  margin: 0;
+  overflow: hidden;
+}
+
+body.render-mode header,
+body.render-mode footer,
+body.render-mode #title-wrapper,
+body.render-mode .scroll-p,
+body.render-mode #slider-wrapper,
+body.render-mode #logo-wall,
+body.render-mode #timeline,
+body.render-mode #seq-scrub,
+body.render-mode #seq-timer {
+  display: none;
+}
+
+body.render-mode #map {
+  position: fixed;
+  top: 0;
+  height: 100vh;
+  width: calc(100vh * 1129 / 600);
+  left: calc(50vw - 100vh * 1129 / 1200);
+}
+
+/* ?fit=width: the whole width instead -- the title neons and credits are
+   drawn on a 1920-wide frame, so nothing at their edges is lost -- with
+   thin black bars above and below, the same black as #seq-black. */
+body.render-mode.render-fit {
+  background: #000;
+}
+
+body.render-mode.render-fit #map {
+  width: 100vw;
+  height: calc(100vw * 600 / 1129);
+  left: 0;
+  top: calc(50vh - 100vw * 300 / 1129);
+}

@@ -1,5 +1,18 @@
 "use strict";
 
+// Offline render of the storyboard (index.html?render, driven frame by frame
+// by render/render.mjs): the page shows only the viz, fills the window, and
+// takes its clock from the (faked, paused) performance.now() instead of the
+// song, so every frame lands exactly on time however slow it is to draw.
+// ?from=<seconds> starts the storyboard part-way through; ?fit=width shows
+// the viz at the window's full width instead of its full height (see
+// body.render-fit in style.css).
+const RENDER_PARAMS = new URLSearchParams(location.search);
+const RENDER = RENDER_PARAMS.has("render");
+const RENDER_FROM = +RENDER_PARAMS.get("from") || 0;
+if (RENDER) document.body.classList.add("render-mode");
+if (RENDER && RENDER_PARAMS.get("fit") === "width") document.body.classList.add("render-fit");
+
 const scroller = scrollama();
 
 /// SVG ///
@@ -73,7 +86,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   let moving = false;
   const playButton = d3.select("#play-button");
   const song = document.getElementById("song");
-  setUpKaraoke(song);
+  const karaoke = setUpKaraoke(song);
   const piazzaPlate = document.getElementById("piazza-plate");
   const piazzaVideo = document.getElementById("piazza-bg");
   // Street starts empty (the plate, no people/cars) and only cuts over to
@@ -82,6 +95,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // audio-synced entrance (and with scrollama's idle preview), never on
   // its own timer.
   let crowdVisible = false;
+  // render mode never plays the video, it seeks it per frame from here
+  // (see syncRenderVideo)
+  let crowdShownAt = null;
   function setCrowdVisible(visible) {
     if (visible === crowdVisible) return;
     crowdVisible = visible;
@@ -89,7 +105,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       piazzaPlate.style.display = "none";
       piazzaVideo.style.display = "block";
       piazzaVideo.currentTime = 0;
-      piazzaVideo.play();
+      if (RENDER) crowdShownAt = performance.now();
+      else piazzaVideo.play();
     } else {
       piazzaVideo.pause();
       piazzaVideo.style.display = "none";
@@ -268,7 +285,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     seqCreditsSvg.style.transform = `translateY(${viewH - (viewH + rollH) * p}px)`;
   }
 
-  d3.xml("svg/credits.svg" + CACHE_BUST).then((xml) => {
+  const creditsLoaded = d3.xml("svg/credits.svg" + CACHE_BUST).then((xml) => {
     const svg = document.importNode(xml.documentElement, true);
     // drawn at the 1920-frame scale: its own width (e.g. 905) out of 1920
     svg.style.width = `${(+svg.getAttribute("width") / 1920) * 100}%`;
@@ -396,7 +413,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     return max < 70 ? null : hex;
   }
 
-  d3.xml("svg/titles.svg" + CACHE_BUST).then((xml) => {
+  const titlesLoaded = d3.xml("svg/titles.svg" + CACHE_BUST).then((xml) => {
     const svg = document.importNode(xml.documentElement, true);
     svg.removeAttribute("width");
     svg.removeAttribute("height");
@@ -477,9 +494,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   // While the song plays its own currentTime is the clock, so the overlays,
   // the year and the readout all stay locked to the audio.
-  function seqFrame(now) {
+  let renderStartedAt = 0;
+  let onFacadeReady = () => {};
+  function paintSeq(now) {
     if (seqStarted && !seqEnded) {
-      if (seqScrubbing) {
+      if (RENDER) {
+        seqClock = RENDER_FROM + (performance.now() - renderStartedAt) / 1000;
+      } else if (seqScrubbing) {
         // the handle is the clock while it's held, whatever the audio says
         seqClock = +seqScrub.value;
       } else if (seqSeekTarget !== null) {
@@ -494,6 +515,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       }
       syncYearToClock();
       syncPlaceCaption();
+      // normally the song's own timeupdate drives the lyrics (see
+      // setUpKaraoke), but in render mode the song never plays
+      if (RENDER) karaoke.showAt(seqClock);
       if (seqClock >= SEQ_END) endSequence();
     }
     seqLastFrame = now;
@@ -503,9 +527,85 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     updateSeqNeons(seqStarted ? seqClock : -1);
     updateSeqCredits(seqStarted ? seqClock : -1);
     if (!seqScrubbing) seqScrub.value = seqClock;
+  }
+
+  function seqFrame(now) {
+    paintSeq(now);
+    if (RENDER) syncRenderAnimations();
     requestAnimationFrame(seqFrame);
   }
   requestAnimationFrame(seqFrame);
+
+  // CSS animations/transitions and el.animate() run on the browser's real
+  // clock, which the faked one doesn't touch -- so in render mode each one
+  // is paused the moment it's first seen and then stepped by hand to the
+  // faked time elapsed since. Checked on every (faked) animation frame, so
+  // one is at most a frame late to start; finite ones are dropped once
+  // done, leaving their end state in place.
+  const renderAnimationStart = new WeakMap();
+  function syncRenderAnimations() {
+    const now = performance.now();
+    document.getAnimations().forEach((animation) => {
+      if (!renderAnimationStart.has(animation)) {
+        renderAnimationStart.set(animation, now);
+        animation.pause();
+      }
+      const elapsed = now - renderAnimationStart.get(animation);
+      if (elapsed >= animation.effect.getComputedTiming().endTime) animation.cancel();
+      else animation.currentTime = elapsed;
+    });
+  }
+
+  // The crowd video is seeked to where it would be by now had it been
+  // playing (looping) since setCrowdVisible() showed it, aiming at the
+  // middle of a source frame so rounding can't land on its neighbour. The
+  // faked clock moves in whole milliseconds (33, 67, 100...), so the frame
+  // is rounded, not floored -- 33ms is frame 1, not frame 0 again.
+  const PIAZZA_VIDEO_FPS = 30;
+  function syncRenderVideo() {
+    if (!crowdVisible) return Promise.resolve();
+    const frameCount = Math.round(piazzaVideo.duration * PIAZZA_VIDEO_FPS);
+    const elapsed = (performance.now() - crowdShownAt) / 1000;
+    const frame = Math.round(elapsed * PIAZZA_VIDEO_FPS) % frameCount;
+    const target = (frame + 0.5) / PIAZZA_VIDEO_FPS;
+    if (Math.abs(piazzaVideo.currentTime - target) < 1e-3 && !piazzaVideo.seeking) {
+      return Promise.resolve();
+    }
+    return new Promise((resolve) => {
+      piazzaVideo.addEventListener("seeked", resolve, { once: true });
+      piazzaVideo.currentTime = target;
+    });
+  }
+
+  if (RENDER) {
+    const facadeReady = new Promise((resolve) => (onFacadeReady = resolve));
+    const videoReady = new Promise((resolve) => {
+      if (piazzaVideo.readyState >= 2) resolve();
+      else piazzaVideo.addEventListener("loadeddata", resolve, { once: true });
+    });
+    window.renderEnd = SEQ_END;
+    window.renderReady = Promise.all([
+      facadeReady,
+      titlesLoaded,
+      creditsLoaded,
+      karaoke.ready,
+      videoReady,
+      document.fonts.ready,
+    ]);
+    // called once the faked clock is paused: the storyboard's RENDER_FROM
+    // is pinned to this moment
+    window.renderStart = () => {
+      renderStartedAt = performance.now();
+      startSequence();
+    };
+    // brings every layer to the faked clock's current time; resolves once
+    // the frame is ready to be captured
+    window.renderFrame = () => {
+      paintSeq(performance.now());
+      syncRenderAnimations();
+      return syncRenderVideo();
+    };
+  }
 
   seqScrub.addEventListener("pointerdown", () => (seqScrubbing = true));
   // released anywhere, not just over the bar (change doesn't fire at all
@@ -605,6 +705,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     // before this slower fetch resolved, so every arc drew in the muted
     // fallback color until now.
     radialTimeline();
+    onFacadeReady();
   });
 
   // Surfaces mismatches between the CSV and the artwork instead of letting
@@ -1058,8 +1159,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   radialTimeline();
 
-  // Set up scrollama
-  scroller
+  // Set up scrollama (not while rendering: its step previews would set
+  // a year of their own)
+  if (!RENDER) scroller
     .setup({
       step: "#scrolly .scroll-p",
       offset: 0.75,
@@ -1135,17 +1237,19 @@ function parseSrt(text) {
 
 // Drives #karaoke-line off the song's own currentTime, like the year
 // sequence itself (see yearAtAudioTime), so the lyrics stay in sync with
-// the audio.
+// the audio. Render mode, where the song never plays, calls showAt() itself.
 function setUpKaraoke(song) {
   const karaokeLine = document.getElementById("karaoke-line");
-  fetch("karaoke.srt" + CACHE_BUST)
+  let cues = [];
+  function showAt(t) {
+    const cue = cues.find((c) => t >= c.start && t <= c.end);
+    fadeTextTo(karaokeLine, cue ? cue.text : "");
+  }
+  const ready = fetch("karaoke.srt" + CACHE_BUST)
     .then((response) => response.text())
     .then((text) => {
-      const cues = parseSrt(text);
-      song.addEventListener("timeupdate", () => {
-        const t = song.currentTime;
-        const cue = cues.find((c) => t >= c.start && t <= c.end);
-        fadeTextTo(karaokeLine, cue ? cue.text : "");
-      });
+      cues = parseSrt(text);
+      song.addEventListener("timeupdate", () => showAt(song.currentTime));
     });
+  return { showAt, ready };
 }
