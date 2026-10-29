@@ -577,13 +577,28 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     canvas.height = 768;
     canvas.style.display = "none";
     video.replaceWith(canvas);
-    const count = +RENDER_PARAMS.get("piazzaFrames");
-    piazzaFrames = Array.from({ length: count }, (_, i) => {
-      const img = new Image();
-      img.src = `${PIAZZA_FRAMES_DIR}${String(i + 1).padStart(3, "0")}.png`;
-      return img;
-    });
     return canvas;
+  }
+
+  // One at a time, each fully decoded up front so drawing it is instant:
+  // decoding all 90 big PNGs at once in the browser sometimes failed
+  // outright ("The source image cannot be decoded"), so each also gets a
+  // couple of retries.
+  async function loadPiazzaFrames() {
+    const count = +RENDER_PARAMS.get("piazzaFrames");
+    for (let i = 0; i < count; i++) {
+      const url = `${PIAZZA_FRAMES_DIR}${String(i + 1).padStart(3, "0")}.png`;
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`${url}: ${response.status}`);
+          piazzaFrames[i] = await createImageBitmap(await response.blob());
+          break;
+        } catch (err) {
+          if (attempt === 3) throw err;
+        }
+      }
+    }
   }
 
   // Draws the frame the crowd video would be on had it been playing
@@ -599,7 +614,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   if (RENDER) {
     const facadeReady = new Promise((resolve) => (onFacadeReady = resolve));
-    const videoReady = Promise.all(piazzaFrames.map((img) => img.decode()));
+    const videoReady = loadPiazzaFrames();
     window.renderEnd = SEQ_END;
     window.renderReady = Promise.all([
       facadeReady,
