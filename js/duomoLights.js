@@ -88,15 +88,19 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const song = document.getElementById("song");
   const karaoke = setUpKaraoke(song);
   const piazzaPlate = document.getElementById("piazza-plate");
-  const piazzaVideo = document.getElementById("piazza-bg");
+  // render mode's stand-in for the crowd video (see renderPiazzaCanvas)
+  const PIAZZA_VIDEO_FPS = 30;
+  const PIAZZA_FRAMES_DIR = "render/out/piazza_frames/";
+  let piazzaFrames = [];
+  const piazzaVideo = RENDER ? renderPiazzaCanvas() : document.getElementById("piazza-bg");
   // Street starts empty (the plate, no people/cars) and only cuts over to
   // the looping crowd video once a year is actually on screen -- driven
   // from updateProspetto() below so it switches in lockstep with 1945's
   // audio-synced entrance (and with scrollama's idle preview), never on
   // its own timer.
   let crowdVisible = false;
-  // render mode never plays the video, it seeks it per frame from here
-  // (see syncRenderVideo)
+  // render mode has a canvas instead of the video, drawn per frame as if it
+  // had been playing since this moment (see syncRenderVideo)
   let crowdShownAt = null;
   function setCrowdVisible(visible) {
     if (visible === crowdVisible) return;
@@ -104,11 +108,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     if (visible) {
       piazzaPlate.style.display = "none";
       piazzaVideo.style.display = "block";
-      piazzaVideo.currentTime = 0;
-      if (RENDER) crowdShownAt = performance.now();
-      else piazzaVideo.play();
+      if (RENDER) {
+        crowdShownAt = performance.now();
+      } else {
+        piazzaVideo.currentTime = 0;
+        piazzaVideo.play();
+      }
     } else {
-      piazzaVideo.pause();
+      if (!RENDER) piazzaVideo.pause();
       piazzaVideo.style.display = "none";
       piazzaPlate.style.display = "block";
     }
@@ -556,33 +563,43 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     });
   }
 
-  // The crowd video is seeked to where it would be by now had it been
-  // playing (looping) since setCrowdVisible() showed it, aiming at the
-  // middle of a source frame so rounding can't land on its neighbour. The
-  // faked clock moves in whole milliseconds (33, 67, 100...), so the frame
-  // is rounded, not floored -- 33ms is frame 1, not frame 0 again.
-  const PIAZZA_VIDEO_FPS = 30;
-  function syncRenderVideo() {
-    if (!crowdVisible) return Promise.resolve();
-    const frameCount = Math.round(piazzaVideo.duration * PIAZZA_VIDEO_FPS);
-    const elapsed = (performance.now() - crowdShownAt) / 1000;
-    const frame = Math.round(elapsed * PIAZZA_VIDEO_FPS) % frameCount;
-    const target = (frame + 0.5) / PIAZZA_VIDEO_FPS;
-    if (Math.abs(piazzaVideo.currentTime - target) < 1e-3 && !piazzaVideo.seeking) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve) => {
-      piazzaVideo.addEventListener("seeked", resolve, { once: true });
-      piazzaVideo.currentTime = target;
+  // Seeking the <video> itself per frame proved unreliable in headless
+  // Chrome (its seeked event sometimes never comes once screenshots are
+  // being taken), so render mode swaps it for a canvas showing the crowd
+  // video's own frames, which render.mjs extracts as PNGs beforehand
+  // (?piazzaFrames=<count>). Same box, same .piazza-layer styling.
+  function renderPiazzaCanvas() {
+    const video = document.getElementById("piazza-bg");
+    const canvas = document.createElement("canvas");
+    canvas.className = video.className;
+    // the video's own size
+    canvas.width = 1376;
+    canvas.height = 768;
+    canvas.style.display = "none";
+    video.replaceWith(canvas);
+    const count = +RENDER_PARAMS.get("piazzaFrames");
+    piazzaFrames = Array.from({ length: count }, (_, i) => {
+      const img = new Image();
+      img.src = `${PIAZZA_FRAMES_DIR}${String(i + 1).padStart(3, "0")}.png`;
+      return img;
     });
+    return canvas;
+  }
+
+  // Draws the frame the crowd video would be on had it been playing
+  // (looping) since setCrowdVisible() showed it. The faked clock moves in
+  // whole milliseconds (33, 67, 100...), so the frame is rounded, not
+  // floored -- 33ms is frame 1, not frame 0 again.
+  function syncRenderVideo() {
+    if (!crowdVisible) return;
+    const elapsed = (performance.now() - crowdShownAt) / 1000;
+    const frame = Math.round(elapsed * PIAZZA_VIDEO_FPS) % piazzaFrames.length;
+    piazzaVideo.getContext("2d").drawImage(piazzaFrames[frame], 0, 0);
   }
 
   if (RENDER) {
     const facadeReady = new Promise((resolve) => (onFacadeReady = resolve));
-    const videoReady = new Promise((resolve) => {
-      if (piazzaVideo.readyState >= 2) resolve();
-      else piazzaVideo.addEventListener("loadeddata", resolve, { once: true });
-    });
+    const videoReady = Promise.all(piazzaFrames.map((img) => img.decode()));
     window.renderEnd = SEQ_END;
     window.renderReady = Promise.all([
       facadeReady,
@@ -598,12 +615,12 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       renderStartedAt = performance.now();
       startSequence();
     };
-    // brings every layer to the faked clock's current time; resolves once
-    // the frame is ready to be captured
+    // brings every layer to the faked clock's current time, ready to be
+    // captured
     window.renderFrame = () => {
       paintSeq(performance.now());
       syncRenderAnimations();
-      return syncRenderVideo();
+      syncRenderVideo();
     };
   }
 

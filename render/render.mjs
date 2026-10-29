@@ -16,7 +16,7 @@
 // Output goes to render/out/.
 
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
@@ -24,6 +24,9 @@ import { chromium } from "playwright";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const AUDIO = join(ROOT, "audio/milan-me-bel-bele.mp3");
+const PIAZZA_VIDEO = join(ROOT, "video/piazza_timelapse.mp4");
+// served to the page from here (see renderPiazzaCanvas in duomoLights.js)
+const PIAZZA_FRAMES = join(ROOT, "render/out/piazza_frames");
 const PORT = 8790;
 
 const { values: opts } = parseArgs({
@@ -59,6 +62,25 @@ function startServer() {
         });
     poll();
   });
+}
+
+// The crowd video's frames as PNGs, for the page to draw instead of seeking
+// the video itself. The file carries no colour tags; Chrome plays it as
+// BT.709, so it's decoded the same way here. Re-extract by deleting the
+// folder.
+function extractPiazzaFrames() {
+  if (!existsSync(PIAZZA_FRAMES)) {
+    mkdirSync(PIAZZA_FRAMES, { recursive: true });
+    const ffmpeg = spawn("ffmpeg", [
+      "-loglevel", "error", "-i", PIAZZA_VIDEO,
+      "-vf", "scale=in_color_matrix=bt709:in_range=tv,format=rgb24",
+      join(PIAZZA_FRAMES, "%03d.png"),
+    ], { stdio: "inherit" });
+    return new Promise((resolve, reject) =>
+      ffmpeg.on("close", (code) => (code === 0 ? resolve() : reject(new Error("frame extraction failed"))))
+    ).then(() => readdirSync(PIAZZA_FRAMES).length);
+  }
+  return Promise.resolve(readdirSync(PIAZZA_FRAMES).filter((f) => f.endsWith(".png")).length);
 }
 
 function startEncoder(duration, outBase) {
@@ -107,10 +129,13 @@ function fmt(sec) {
   return `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
 }
 
+const piazzaFrames = await extractPiazzaFrames();
 const server = await startServer();
-// installed Chrome rather than Playwright's own Chromium, which can't decode
-// the H.264 piazza video
-const browser = await chromium.launch({ channel: "chrome" });
+// Playwright's own headless shell, a bare binary rather than a macOS app:
+// installed Chrome, running windowless in the background, got throttled
+// (App Nap) into screenshots that took a minute or never came. It can't
+// play H.264, but the page draws the crowd video from PNGs anyway.
+const browser = await chromium.launch();
 try {
   const page = await browser.newPage({
     viewport: { width: +opts.width, height: +opts.height },
@@ -118,7 +143,7 @@ try {
   });
   page.on("pageerror", (err) => console.error("page error:", err.message));
   await page.clock.install({ time: 0 });
-  await page.goto(`http://localhost:${PORT}/index.html?render&from=${from}&fit=${opts.fit}`);
+  await page.goto(`http://localhost:${PORT}/index.html?render&from=${from}&fit=${opts.fit}&piazzaFrames=${piazzaFrames}`);
   await page.waitForFunction(() => window.renderReady, null, { polling: 100 });
   await page.evaluate(() => window.renderReady);
 
@@ -134,6 +159,9 @@ try {
   const outBase =
     opts.out ?? join(ROOT, "render/out", `duomo_${outH}p${fps}_${opts.fit}_${from}s-${from + duration}s`);
   const encoder = startEncoder(duration, outBase);
+  // straight from the DevTools protocol: page.screenshot() adds its own
+  // per-shot preparation, which proved slow and at times stalled outright
+  const cdp = await page.context().newCDPSession(page);
 
   console.log(`rendering ${frames} frames (${fmt(from)}-${fmt(from + duration)}) at ${outW}x${outH}`);
   const started = Date.now();
@@ -147,7 +175,8 @@ try {
       elapsedMs = target;
     }
     await page.evaluate(() => window.renderFrame());
-    await write(encoder.stdin, await page.screenshot({ type: "png" }));
+    const shot = await cdp.send("Page.captureScreenshot", { format: "png" });
+    await write(encoder.stdin, Buffer.from(shot.data, "base64"));
     if (i % fps === 0 || i === frames - 1) {
       const perFrame = (Date.now() - started) / (i + 1);
       const eta = ((frames - i - 1) * perFrame) / 1000;
