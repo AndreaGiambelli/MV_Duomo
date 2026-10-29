@@ -604,3 +604,28 @@ body.render-mode.render-fit #map {
   left: 0;
   top: calc(50vh - 100vw * 300 / 1129);
 }
+
+/* ?vertical: 9:16 for social. #map stays at the window's full height (see
+   body.render-mode #map), so the frame is a slice from the middle of the
+   facade. No year or lyrics captions. The black-screen cards are sized to
+   the frame's own width instead of #map's, which here runs far past it. */
+body.render-vertical #year-display,
+body.render-vertical #karaoke-line {
+  display: none;
+}
+
+body.render-vertical #seq-title {
+  width: 50vw;
+}
+
+body.render-vertical #seq-titles svg {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 180vw;
+  transform: translate(-50%, -50%);
+}
+
+body.render-vertical #seq-credits svg {
+  width: 85vw !important;
+}

@@ -12,6 +12,8 @@ const RENDER = RENDER_PARAMS.has("render");
 const RENDER_FROM = +RENDER_PARAMS.get("from") || 0;
 if (RENDER) document.body.classList.add("render-mode");
 if (RENDER && RENDER_PARAMS.get("fit") === "width") document.body.classList.add("render-fit");
+// ?vertical: the 9:16 cut for social (see body.render-vertical in style.css)
+if (RENDER && RENDER_PARAMS.has("vertical")) document.body.classList.add("render-vertical");
 
 const scroller = scrollama();
 

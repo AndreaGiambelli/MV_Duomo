@@ -12,6 +12,8 @@
 //   node render.mjs --master                also write a ProRes 422 HQ .mov
 //   node render.mjs --fit width             full width, thin black bars
 //                                           (default: full height, sides cropped)
+//   node render.mjs --vertical              9:16 cut for social, 1080x1920,
+//                                           no year or lyrics captions
 //
 // Output goes to render/out/.
 
@@ -35,19 +37,22 @@ const { values: opts } = parseArgs({
     duration: { type: "string" }, // default: to the end of the storyboard
     fps: { type: "string", default: "30" },
     // CSS size of the frame; --scale multiplies the output pixels only
-    width: { type: "string", default: "1920" },
-    height: { type: "string", default: "1080" },
+    width: { type: "string" },
+    height: { type: "string" },
     scale: { type: "string", default: "1" },
     out: { type: "string" },
     master: { type: "boolean", default: false },
     fit: { type: "string", default: "height" },
+    vertical: { type: "boolean", default: false },
   },
 });
 const from = +opts.from;
 const fps = +opts.fps;
 const scale = +opts.scale;
-const outW = Math.round(+opts.width * scale);
-const outH = Math.round(+opts.height * scale);
+const cssW = +(opts.width ?? (opts.vertical ? 1080 : 1920));
+const cssH = +(opts.height ?? (opts.vertical ? 1920 : 1080));
+const outW = Math.round(cssW * scale);
+const outH = Math.round(cssH * scale);
 
 function startServer() {
   const server = spawn("python3", ["serve.py", String(PORT)], { cwd: ROOT, stdio: "ignore" });
@@ -138,12 +143,12 @@ const server = await startServer();
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({
-    viewport: { width: +opts.width, height: +opts.height },
+    viewport: { width: cssW, height: cssH },
     deviceScaleFactor: scale,
   });
   page.on("pageerror", (err) => console.error("page error:", err.message));
   await page.clock.install({ time: 0 });
-  await page.goto(`http://localhost:${PORT}/index.html?render&from=${from}&fit=${opts.fit}&piazzaFrames=${piazzaFrames}`);
+  await page.goto(`http://localhost:${PORT}/index.html?render&from=${from}&fit=${opts.fit}&piazzaFrames=${piazzaFrames}${opts.vertical ? "&vertical" : ""}`);
   await page.waitForFunction(() => window.renderReady, null, { polling: 100 });
   await page.evaluate(() => window.renderReady);
 
@@ -157,7 +162,7 @@ try {
 
   mkdirSync(join(ROOT, "render/out"), { recursive: true });
   const outBase =
-    opts.out ?? join(ROOT, "render/out", `duomo_${outH}p${fps}_${opts.fit}_${from}s-${from + duration}s`);
+    opts.out ?? join(ROOT, "render/out", `duomo_${opts.vertical ? "vertical_" : ""}${outW}x${outH}_${fps}fps_${opts.fit}_${from}s-${from + duration}s`);
   const encoder = startEncoder(duration, outBase);
   // straight from the DevTools protocol: page.screenshot() adds its own
   // per-shot preparation, which proved slow and at times stalled outright
