@@ -182,12 +182,13 @@ body {
 
 /* the "Milan me bel belèe" title sign (svg/title_card.svg), centred in
    front of the blurred title signs between the MM card and the street.
-   1189px wide when the viz is 1920px wide, like the rest of the intro. */
+   80% of its own 1189px at the intro's 1920-wide scale, i.e. 951px when
+   the viz is 1920px wide. */
 #seq-title-card {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: calc(100% * 1189 / 1920);
+  width: calc(100% * 1189 * 0.8 / 1920);
   transform: translate(-50%, -50%);
   z-index: 5;
   opacity: 0;

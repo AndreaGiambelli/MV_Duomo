@@ -209,7 +209,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   }
 
   // Storyboard for the recorded video, timed on the song's clock (seconds):
-  // black until 0:14 (with the MM title card shown 0:02-0:05), fading to the
+  // black until 0:14 (with the MM title card shown 0:02-0:06), fading to the
   // bare street plate by 0:17; the usual year sequence (1945 lands at
   // 0:20.3, 2000 at 3:00) held on 2000 until it fades back to black over
   // 3:02-3:05; black with the end credits rolling until 3:18.5, then black
@@ -223,7 +223,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // Things shown on the black screen ease in from their start time and
   // out from their end time, each over this long.
   const SEQ_CARD_EASE = 0.5;
-  const SEQ_TITLE_WINDOWS = [[2, 5]];
+  const SEQ_TITLE_WINDOWS = [[2, 6]];
   // The song-title signs (svg/title_neons.svg) light up one by one, in a
   // shuffled order, on the black screen behind the MM card: the first half
   // a second after the card starts to appear, the last at SEQ_NEON_LAST,
@@ -235,9 +235,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const SEQ_NEON_FADE = 0.35;
   // The "Milan me bel belèe" title sign (svg/title_card.svg) takes the
   // centre in front of them: from a second after the MM card has gone until
-  // a second before the street starts fading in, easing like the MM card.
+  // 1.5s before the street starts fading in, easing like the MM card.
   const SEQ_TITLE_CARD_WINDOWS = [
-    [SEQ_TITLE_WINDOWS[0][1] + SEQ_CARD_EASE + 1, SEQ_FADE_IN_START - 1],
+    [SEQ_TITLE_WINDOWS[0][1] + SEQ_CARD_EASE + 1, SEQ_FADE_IN_START - 1.5],
   ];
   // Before any year is on screen, the year caption's slot names the place
   // instead -- from a second into the street fading in until shortly before
