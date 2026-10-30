@@ -174,16 +174,30 @@ body {
   left: 50%;
   width: calc(100% * 422 / 1920);
   transform: translate(-50%, -50%);
-  z-index: 4;
+  /* above the blurred title signs (#seq-titles) that light up behind it */
+  z-index: 5;
   opacity: 0;
   pointer-events: none;
 }
 
-/* the song-title neons (svg/titles.svg), shown one by one on the black
-   screen between the MM card and the street fading in. The artwork is
-   drawn on a 1920-wide frame with signs spilling past both sides (a
-   ~2218px group), so it's scaled to the viz width, pinned to the top, and
-   whatever falls outside left/right/bottom is cut off here. */
+/* the "Milan me bel belèe" title sign (svg/title_card.svg), centred in
+   front of the blurred title signs between the MM card and the street.
+   1189px wide when the viz is 1920px wide, like the rest of the intro. */
+#seq-title-card {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(100% * 1189 / 1920);
+  transform: translate(-50%, -50%);
+  z-index: 5;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* the song-title signs (svg/title_neons.svg), shown one by one on the
+   black screen between the MM card and the street fading in. The artwork
+   is a 1920x1080 frame, scaled to the viz width and pinned to the top;
+   whatever falls below the viz is cut off here. */
 #seq-titles {
   position: absolute;
   inset: 0;
@@ -197,16 +211,6 @@ body {
   width: 100%;
   height: auto;
   overflow: visible;
-}
-
-/* Same neon glow as #Logos .glow-unit, distances scaled up by 1920/1129:
-   these signs are drawn on a 1920-unit frame instead of the facade's
-   1129, so the same px in their own units would read about half as wide. */
-#seq-titles .glow-unit {
-  filter: drop-shadow(0 0 0.35px var(--glow-color, #fff))
-    drop-shadow(0 0 2.5px color-mix(in srgb, var(--glow-color, #fff) 75%, transparent))
-    drop-shadow(0 0 6px color-mix(in srgb, var(--glow-color, #fff) 50%, transparent))
-    drop-shadow(0 0 12px color-mix(in srgb, var(--glow-color, #fff) 28%, transparent));
 }
 
 /* end credits (svg/credits.svg), rolling up the black screen in scene 3.
@@ -299,7 +303,10 @@ body {
     drop-shadow(0 0 3px var(--glow-color, #fff));
 }
 
-.glow-unit {
+/* .flicker-unit: the same flicker without any glow (the blurred title
+   signs in the storyboard intro) */
+.glow-unit,
+.flicker-unit {
   animation: neon-flicker 9s infinite;
   animation-delay: var(--flicker-delay, 0s);
 }
@@ -317,7 +324,8 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glow-unit {
+  .glow-unit,
+  .flicker-unit {
     animation: none;
   }
 }
