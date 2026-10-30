@@ -150,28 +150,29 @@ body {
   pointer-events: none;
 }
 
-/* storyboard overlays (see the "A" sequence in duomoLights.js): a black
-   card over the whole viz area -- above the year/karaoke captions too --
-   whose opacity the sequence drives frame by frame, and a red elapsed-time
+/* storyboard overlays (see the "A" sequence in duomoLights.js): the
+   "black" card -- a deep purple-to-black vertical gradient -- over the
+   whole viz area, above the year/karaoke captions too, whose opacity the
+   sequence drives frame by frame, and a red elapsed-time
    readout above everything for syncing the recording against the track. */
 #seq-black {
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: #000;
+  background: linear-gradient(to bottom, #18042e, #000000);
   opacity: 0;
   pointer-events: none;
 }
 
-/* the MM title card, shown on the black screen at the start; its
-   own background is pure black, so it melts into #seq-black. 490px wide
-   when the viz is 1920px wide, scaled proportionally at any other width,
-   and kept dead center. */
+/* the MM logo card (svg/logo.svg, transparent), shown on the black
+   screen at the start. 422px wide when the viz is 1920px wide -- the
+   size the logo had inside the 490px screenshot it replaced -- scaled
+   proportionally at any other width, and kept dead center. */
 #seq-title {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: calc(100% * 490 / 1920);
+  width: calc(100% * 422 / 1920);
   transform: translate(-50%, -50%);
   z-index: 4;
   opacity: 0;
@@ -615,7 +616,8 @@ body.render-vertical #karaoke-line {
 }
 
 body.render-vertical #seq-title {
-  width: 50vw;
+  /* was 50vw for the 490-wide screenshot; the bare logo is 422 of it */
+  width: calc(50vw * 422 / 490);
 }
 
 body.render-vertical #seq-titles svg {
