@@ -16,7 +16,8 @@ Milan, me bel belèe
 
 5
 00:01:03,940 --> 00:01:07,105
-La gent la corr föra di ganàss de la metropolitana
+La gent la corr föra di ganàss
+de la metropolitana
 
 6
 00:01:07,464 --> 00:01:09,234
@@ -43,11 +44,11 @@ Come on amor che l'è mai nassüü
 Se l'è mai stàa pœu minga finì
 
 12
-00:01:31,865 --> 00:01:33,333
+00:01:31,565 --> 00:01:33,333
 Come on amor che l'è mai nassüü
 
 13
-00:01:33,751 --> 00:01:38,580
+00:01:33,451 --> 00:01:38,580
 On dì el te travòlg, el dì dòpo el spariss
 
 14

@@ -526,9 +526,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       }
       syncYearToClock();
       syncPlaceCaption();
-      // normally the song's own timeupdate drives the lyrics (see
-      // setUpKaraoke), but in render mode the song never plays
-      if (RENDER) karaoke.showAt(seqClock);
+      // the lyrics follow the storyboard clock frame by frame, same as
+      // everything else (see setUpKaraoke)
+      karaoke.showAt(seqClock);
       if (seqClock >= SEQ_END) endSequence();
     }
     seqLastFrame = now;
@@ -1235,9 +1235,30 @@ function type(d) {
 // since callers (a ~3s year cadence, a timeupdate firing many times a
 // second) call this far more often than the displayed value changes.
 const TEXT_FADE_MS = 150;
+// One swap in flight per element: callers may ask every frame (the karaoke
+// and captions follow the storyboard clock), so a repeat of the pending
+// text is a no-op and a different one replaces it -- otherwise each call
+// would queue its own timeout and they'd fire in a row, flashing old and
+// new text back and forth.
+const pendingTextFade = new WeakMap();
+
 function fadeTextTo(el, text) {
   const next = text === null ? "" : String(text);
-  if (el.textContent === next) return;
+  const pending = pendingTextFade.get(el);
+  if (pending && pending.target === next) return;
+  // retargeting mid-dip keeps the dip's own end time instead of starting a
+  // fresh one, so the new text isn't held back any longer than the old was
+  let delay = TEXT_FADE_MS;
+  if (pending) {
+    clearTimeout(pending.timer);
+    pendingTextFade.delete(el);
+    delay = Math.max(0, pending.due - performance.now());
+  }
+  if (el.textContent === next) {
+    // asked back to what's already there mid-dip: just undo the dip
+    el.style.opacity = 1;
+    return;
+  }
   // Nothing on screen to fade out (e.g. 1945's caption arriving from blank):
   // skip the dip and fade the new text straight in, so it starts on the
   // same frame as everything else instead of TEXT_FADE_MS late.
@@ -1248,10 +1269,12 @@ function fadeTextTo(el, text) {
     return;
   }
   el.style.opacity = 0;
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    pendingTextFade.delete(el);
     el.textContent = next;
     el.style.opacity = 1;
-  }, TEXT_FADE_MS);
+  }, delay);
+  pendingTextFade.set(el, { target: next, timer, due: performance.now() + delay });
 }
 
 function parseSrtTime(t) {
@@ -1274,13 +1297,20 @@ function parseSrt(text) {
     });
 }
 
-// Drives #karaoke-line off the song's own currentTime, like the year
-// sequence itself (see yearAtAudioTime), so the lyrics stay in sync with
-// the audio. Render mode, where the song never plays, calls showAt() itself.
+// Drives #karaoke-line. While the storyboard runs, its frame loop calls
+// showAt() every frame with the song's position, so each line lands on its
+// cue to the frame. The song's own timeupdate is only a fallback for when
+// it isn't -- that event fires just ~4 times a second, so on its own every
+// line could show up to a quarter of a second late.
 function setUpKaraoke(song) {
   const karaokeLine = document.getElementById("karaoke-line");
   let cues = [];
+  let lastDrivenAt = -Infinity;
   function showAt(t) {
+    lastDrivenAt = performance.now();
+    showCueAt(t);
+  }
+  function showCueAt(t) {
     const cue = cues.find((c) => t >= c.start && t <= c.end);
     fadeTextTo(karaokeLine, cue ? cue.text : "");
   }
@@ -1288,7 +1318,9 @@ function setUpKaraoke(song) {
     .then((response) => response.text())
     .then((text) => {
       cues = parseSrt(text);
-      song.addEventListener("timeupdate", () => showAt(song.currentTime));
+      song.addEventListener("timeupdate", () => {
+        if (performance.now() - lastDrivenAt > 500) showCueAt(song.currentTime);
+      });
     });
   return { showAt, ready };
 }

@@ -142,6 +142,8 @@ body {
   width: 90%;
   max-width: 600px;
   text-align: center;
+  /* a line break inside an SRT cue is a line break on screen too */
+  white-space: pre-line;
   font-family: "Helvetica Neue", Arial, sans-serif;
   font-size: 30px;
   font-weight: 400;
