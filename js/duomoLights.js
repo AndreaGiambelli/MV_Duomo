@@ -708,6 +708,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
     hideDrawnFacade(svgMap);
     applyNeonGlow(svgMap.querySelector("#Logos"));
+    applyLightSequences(svgMap.querySelector("#Logos"));
     logoAccentColor = buildLogoAccentColorMap(svgMap.querySelector("#Logos"));
     lazyBuildLogoWall(dataset, svgMap.querySelector("#Logos"), loghiSvg.node());
     // Only the node where each logo starts gets the year-based opacity
@@ -883,6 +884,84 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     });
   }
 
+  // Many of the real signs were animated: parts of them switched on one
+  // after another, held, then all went dark and the cycle started again.
+  // Each entry splits a sign's lit shapes into steps (by geometry, not by
+  // Figma layer names, so it survives re-exports) and says when each step
+  // turns on within one cycle, in seconds; everything goes off at offAt.
+  // Off isn't fully invisible -- an unlit tube still reads faintly.
+  const LIGHT_SEQUENCES = {
+    technics: {
+      cycle: 8,
+      offAt: 6.5,
+      onAt: [0.6, 0.95, 1.3, 1.65, 2.0, 2.6, 3.2],
+      // the stripes under the name from the top one down (left and right
+      // halves of each stripe together), then the name, then the top line
+      steps(shapes) {
+        const lines = shapes.filter((s) => getComputedStyle(s).stroke !== "none");
+        const name = shapes.filter((s) => !lines.includes(s));
+        const top = Math.min(...lines.map((s) => s.getBBox().y));
+        const stripes = d3.groups(
+          lines.filter((s) => s.getBBox().y > top + 1),
+          (s) => Math.round(s.getBBox().y)
+        );
+        return [
+          ...stripes.sort((a, b) => a[0] - b[0]).map(([, group]) => group),
+          name,
+          lines.filter((s) => !stripes.some(([, group]) => group.includes(s))),
+        ];
+      },
+    },
+  };
+  const LIGHT_OFF_OPACITY = 0.04;
+
+  // Steps are stored as indices into sign.querySelectorAll("*") so the
+  // logo wall's clones (same structure, see buildLogoWall) can replay the
+  // same sequence without measuring geometry again.
+  const lightSequencePlans = new Map();
+
+  function applyLightSequences(logosGroup) {
+    if (!logosGroup) return;
+    logosGroup.querySelectorAll("[data-logo]").forEach((sign) => {
+      const key = normalizeLogoKey(sign.dataset.logo);
+      const sequence = LIGHT_SEQUENCES[key];
+      const owner = sign.parentElement.closest("[data-logo]");
+      if (!sequence || (owner && owner.dataset.logo === sign.dataset.logo)) return;
+      // the dark backing panel stays as it is, only the lit tubes switch
+      const signBox = sign.getBBox();
+      const shapes = Array.from(sign.querySelectorAll("path, line, polyline, polygon, rect")).filter(
+        (s) => {
+          const box = s.getBBox();
+          return box.width * box.height < signBox.width * signBox.height * 0.5;
+        }
+      );
+      const all = Array.from(sign.querySelectorAll("*"));
+      const plan = sequence.steps(shapes).map((step) => step.map((s) => all.indexOf(s)));
+      lightSequencePlans.set(key, plan);
+      playLightSequence(sign, key);
+    });
+  }
+
+  function playLightSequence(sign, key) {
+    const plan = lightSequencePlans.get(key);
+    if (!plan || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const { cycle, offAt, onAt } = LIGHT_SEQUENCES[key];
+    const all = sign.querySelectorAll("*");
+    plan.forEach((step, i) => {
+      // hard on/off switches, no fade: "step-end" holds each value until
+      // the next keyframe
+      const keyframes = [
+        { offset: 0, opacity: LIGHT_OFF_OPACITY, easing: "step-end" },
+        { offset: onAt[i] / cycle, opacity: 1, easing: "step-end" },
+        { offset: offAt / cycle, opacity: LIGHT_OFF_OPACITY, easing: "step-end" },
+        { offset: 1, opacity: LIGHT_OFF_OPACITY },
+      ];
+      step.forEach((index) => {
+        all[index].animate(keyframes, { duration: cycle * 1000, iterations: Infinity });
+      });
+    });
+  }
+
   // One representative color per logo -- whatever applyNeonGlow already
   // picked for its glow -- so the round timeline's arcs (see
   // radialTimeline below) can be tinted and glow the same way instead of
@@ -1004,6 +1083,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
       tile.appendChild(tileSvg);
       container.appendChild(tile);
+      playLightSequence(clone, normalizeLogoKey(d.logoName));
     });
   }
 
