@@ -1066,6 +1066,28 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         return [[...shapes.filter((s) => getComputedStyle(s).fill === white), ...borders]];
       },
     },
+    // the letters of "copia Oce" one at a time, left to right; the white
+    // disc and the red lettering inside it stay lit
+    copiaoce: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.35,
+      steps(shapes) {
+        const white = (s) => getComputedStyle(s).fill === "rgb(255, 255, 255)";
+        const discs = shapes.filter(white).map((s) => s.getBBox());
+        const inDisc = (s) => {
+          const box = s.getBBox();
+          return discs.some(
+            (d) => box.x >= d.x - 1 && box.y >= d.y - 1 && box.x + box.width <= d.x + d.width + 1 &&
+              box.y + box.height <= d.y + d.height + 1
+          );
+        };
+        return shapes
+          .filter((s) => !white(s) && !inDisc(s))
+          .sort((a, b) => a.getBBox().x - b.getBBox().x)
+          .map((s) => [s]);
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
