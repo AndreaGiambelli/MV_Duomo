@@ -1024,6 +1024,23 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         return [...words, lettering.filter((s) => !isTagline(s))];
       },
     },
+    // VARIG and "linee aeree brasiliane" together, then the yellow lines on
+    // the right one at a time: "Milano", "Rio", "non stop"; the red frame
+    // (the widest shape) stays lit
+    varig: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2, 3.0],
+      steps(shapes) {
+        const frame = shapes.reduce((a, b) => (b.getBBox().width > a.getBBox().width ? b : a));
+        const isYellow = (s) => getComputedStyle(s).fill === "rgb(234, 191, 17)";
+        const rows = d3.groups(shapes.filter(isYellow), (s) => Math.round(s.getBBox().y / 4));
+        return [
+          shapes.filter((s) => s !== frame && !isYellow(s)),
+          ...rows.sort((a, b) => a[0] - b[0]).map(([, row]) => row),
+        ];
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
