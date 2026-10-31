@@ -1170,7 +1170,52 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         return groupIntoWords(shapes, 4);
       },
     },
+    // "Cassa di / Risparmio / di Torino" one word at a time, then the white
+    // CRT; the yellow bars at the sides (as tall as two lines) stay lit
+    crt1: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.6,
+      steps(shapes) {
+        const white = (s) => getComputedStyle(s).fill === "rgb(255, 255, 255)";
+        const text = shapes.filter((s) => !white(s) && s.getBBox().height < 15);
+        return [...wordsInRows(text, 0.4), shapes.filter(white)];
+      },
+    },
+    // "Banca CRT", then "Cassa / di Risparmio / di Torino", one word at a
+    // time; the blue and yellow bars on the left stay lit
+    crt2: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.5,
+      steps(shapes) {
+        const white = shapes.filter((s) => getComputedStyle(s).fill === "rgb(255, 255, 255)");
+        const big = white.filter((s) => s.getBBox().height > 15);
+        const small = white.filter((s) => !big.includes(s));
+        return [...wordsInRows(big, 0.15), ...wordsInRows(small, 0.15)];
+      },
+    },
   };
+  // Lines of text top to bottom, each split into words: letters go on the
+  // same line while their vertical centers stay close, and a word gap is
+  // wider than gapRatio times that line's height.
+  function wordsInRows(letters, gapRatio) {
+    const center = (s) => s.getBBox().y + s.getBBox().height / 2;
+    const heights = letters.map((s) => s.getBBox().height).sort((a, b) => a - b);
+    const lineBreak = heights[Math.floor(heights.length / 2)] / 2;
+    const rows = [];
+    let previous = -Infinity;
+    letters
+      .sort((a, b) => center(a) - center(b))
+      .forEach((s) => {
+        if (center(s) - previous > lineBreak) rows.push([]);
+        rows[rows.length - 1].push(s);
+        previous = center(s);
+      });
+    return rows.flatMap((row) =>
+      groupIntoWords(row, gapRatio * Math.max(...row.map((s) => s.getBBox().height)))
+    );
+  }
   // Splits a single line of letters into words, left to right: a new word
   // starts wherever the gap to the previous letter is wider than minGap.
   function groupIntoWords(letters, minGap) {
