@@ -1041,6 +1041,31 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // mostly lit: every now and then the white parts -- the name and the
+    // panel's border -- go off for a moment; the blue panel stays lit
+    bancolariano: {
+      cycle: 11,
+      offAt: 11,
+      onAt: [1.2],
+      steps(shapes) {
+        const white = "rgb(255, 255, 255)";
+        const borders = shapes
+          .filter((s) => getComputedStyle(s).stroke === white && getComputedStyle(s).fill !== white)
+          .map((panel) => {
+            // the border is the panel's own stroke: split it into a path of
+            // its own, drawn over the panel, so it can switch on its own
+            const border = panel.cloneNode(false);
+            border.removeAttribute("id");
+            border.setAttribute("fill", "none");
+            border.style.fill = "none";
+            panel.setAttribute("stroke", "none");
+            panel.style.stroke = "none";
+            panel.after(border);
+            return border;
+          });
+        return [[...shapes.filter((s) => getComputedStyle(s).fill === white), ...borders]];
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
