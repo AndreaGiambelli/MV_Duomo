@@ -1026,18 +1026,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         const signBox = sign.getBBox();
         const lettering = shapes.filter((s) => s.getBBox().x > signBox.x + signBox.width * 0.18);
         const isTagline = (s) => getComputedStyle(s).fill === "rgb(241, 234, 50)";
-        const words = [];
-        let previousEnd = -Infinity;
-        lettering
-          .filter(isTagline)
-          .sort((a, b) => a.getBBox().x - b.getBBox().x)
-          .forEach((s) => {
-            const box = s.getBBox();
-            // letters within a word sit under 1 apart, words over 2
-            if (box.x - previousEnd > 1.5) words.push([]);
-            words[words.length - 1].push(s);
-            previousEnd = box.x + box.width;
-          });
+        // letters within a word sit under 1 apart, words over 2
+        const words = groupIntoWords(lettering.filter(isTagline), 1.5);
         return [...words, lettering.filter((s) => !isTagline(s))];
       },
     },
@@ -1170,7 +1160,32 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // "Banca", "Agricola", "Milanese", one word at a time (letters within
+    // a word under 2 apart, words about 7)
+    bancaagricolami: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2],
+      steps(shapes) {
+        return groupIntoWords(shapes, 4);
+      },
+    },
   };
+  // Splits a single line of letters into words, left to right: a new word
+  // starts wherever the gap to the previous letter is wider than minGap.
+  function groupIntoWords(letters, minGap) {
+    const words = [];
+    let previousEnd = -Infinity;
+    letters
+      .sort((a, b) => a.getBBox().x - b.getBBox().x)
+      .forEach((s) => {
+        const box = s.getBBox();
+        if (box.x - previousEnd > minGap) words.push([]);
+        words[words.length - 1].push(s);
+        previousEnd = box.x + box.width;
+      });
+    return words;
+  }
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
   // drawn as a copy over the sign's glowing group, shown only while the
