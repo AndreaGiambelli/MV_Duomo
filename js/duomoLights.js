@@ -816,8 +816,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // Some signs shouldn't glow at all -- e.g. copertura1990 is scaffolding
   // sheeting, not an illuminated sign, and a few real signs (benetton, the
   // acqua da tavola pair, jodont, radimi, dentifricioKnapp, the two
-  // L'Europeo signs, safar, deDeFe) were asked to stay plain. Keyed by the
-  // same normalized logoName used everywhere else to match CSV rows.
+  // L'Europeo signs, safar, deDeFe, florio, istitutoZanoni, eberhard) were
+  // asked to stay plain. Keyed by the same normalized logoName used
+  // everywhere else to match CSV rows.
   const NO_GLOW_LOGOS = new Set(
     [
       "benetton",
@@ -831,6 +832,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       "lEuropeo2",
       "safar",
       "deDeFe",
+      "florio",
+      "istitutoZanoni",
+      "eberhard",
     ].map(
       normalizeLogoKey
     )
