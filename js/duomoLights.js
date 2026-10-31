@@ -538,6 +538,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     seqTitleCard.style.opacity = seqStarted
       ? seqTitleOpacity(seqClock, SEQ_TITLE_CARD_WINDOWS)
       : 0;
+    // the storyboard's clock while it runs, so a given moment of the song
+    // always shows the same state (preview and render alike)
+    updateLightSequences(seqStarted ? seqClock : now / 1000);
     updateSeqNeons(seqStarted ? seqClock : -1);
     updateSeqCredits(seqStarted ? seqClock : -1);
     if (!seqScrubbing) seqScrub.value = seqClock;
@@ -708,9 +711,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     svgDefs.forEach((defs) => loghiSvg.node().appendChild(defs));
     hideDrawnFacade(svgMap);
     applyNeonGlow(svgMap.querySelector("#Logos"));
-    applyLightSequences(svgMap.querySelector("#Logos"));
     logoAccentColor = buildLogoAccentColorMap(svgMap.querySelector("#Logos"));
-    lazyBuildLogoWall(dataset, svgMap.querySelector("#Logos"), loghiSvg.node());
     // Only the node where each logo starts gets the year-based opacity
     // toggle: one with no [data-logo] ancestor, or one whose name differs
     // from its nearest ancestor's (a distinct sign nested inside another,
@@ -745,7 +746,19 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     // before this slower fetch resolved, so every arc drew in the muted
     // fallback color until now.
     radialTimeline();
-    onFacadeReady();
+    // The light sequences measure the artwork (getBBox), which forces the
+    // whole facade to lay out right here, before its first paint -- and
+    // that made the first frames after load several hundred ms slower to
+    // draw. Run after the first frame instead (rAF lands just before it,
+    // the timeout just after); the logo wall clones the signs, so it waits
+    // for their sequences too, and so does the render.
+    requestAnimationFrame(() =>
+      setTimeout(() => {
+        applyLightSequences(svgMap.querySelector("#Logos"));
+        lazyBuildLogoWall(dataset, svgMap.querySelector("#Logos"), loghiSvg.node());
+        onFacadeReady();
+      })
+    );
   });
 
   // Surfaces mismatches between the CSV and the artwork instead of letting
@@ -1293,6 +1306,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     return copy;
   }
 
+  // Every tube and unlit copy as a switch with its own on/off window in the
+  // cycle, flipped by updateLightSequences from the page's frame loop --
+  // only on the frames where its state actually changes. (Web Animations
+  // on each element, the first version, kept Chrome repainting every
+  // animated sign's glow on every frame: ~35 fps in 1983 instead of 60.)
+  const lightSwitches = [];
+
   function playLightSequence(sign, key) {
     const plan = lightSequencePlans.get(key);
     if (!plan || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -1300,20 +1320,27 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     const all = sign.querySelectorAll("*");
     plan.forEach((step, i) => {
       const on = typeof onAt === "function" ? onAt(i) : onAt[i];
-      // hard on/off switches, no fade: "step-end" holds each value until
-      // the next keyframe. The tube goes transparent while off, its unlit
-      // copy over it opaque.
-      const keyframes = (off, lit) => [
-        { offset: 0, opacity: off, easing: "step-end" },
-        { offset: on / cycle, opacity: lit, easing: "step-end" },
-        { offset: offAt / cycle, opacity: off, easing: "step-end" },
-        { offset: 1, opacity: off },
-      ];
-      const timing = { duration: cycle * 1000, iterations: Infinity };
-      step.tubes.forEach((index) => all[index].animate(keyframes(0, 1), timing));
-      step.copies.forEach((index) => all[index].animate(keyframes(1, 0), timing));
+      // the tube goes transparent while off, its unlit copy over it opaque
+      step.tubes.forEach((index) =>
+        lightSwitches.push({ el: all[index], cycle, on, off: offAt, lit: 1, unlit: 0, shown: null })
+      );
+      step.copies.forEach((index) =>
+        lightSwitches.push({ el: all[index], cycle, on, off: offAt, lit: 0, unlit: 1, shown: null })
+      );
     });
   }
+
+  // t in seconds: hard on/off switches, no fade
+  function updateLightSequences(t) {
+    lightSwitches.forEach((s) => {
+      const phase = ((t % s.cycle) + s.cycle) % s.cycle;
+      const value = phase >= s.on && phase < s.off ? s.lit : s.unlit;
+      if (value === s.shown) return;
+      s.el.style.opacity = value;
+      s.shown = value;
+    });
+  }
+
 
   // One representative color per logo -- whatever applyNeonGlow already
   // picked for its glow -- so the round timeline's arcs (see
