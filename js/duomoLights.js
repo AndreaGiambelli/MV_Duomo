@@ -1098,13 +1098,68 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         return shapes.sort((a, b) => a.getBBox().x - b.getBBox().x).map((s) => [s]);
       },
     },
+    // one element at a time: the red outline behind the name, B-u-r-g-h-y
+    // (each with its small red counters), the swoosh under it, then the
+    // white bar and the burger on the right; the dashed frame stays lit
+    burghyinsegna: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.35,
+      steps(shapes) {
+        const box = (s) => s.getBBox();
+        const fill = (s) => getComputedStyle(s).fill;
+        const widest = (list) => list.reduce((a, b) => (box(b).width > box(a).width ? b : a));
+        const filled = shapes.filter((s) => fill(s) !== "none"); // the frame is stroke-only
+        const outline = widest(filled.filter((s) => fill(s) === "rgb(220, 22, 8)"));
+        const nameEnd = box(outline).x + box(outline).width;
+        const name = filled.filter((s) => s !== outline && box(s).x < nameEnd);
+        const right = filled.filter((s) => box(s).x >= nameEnd);
+        const swoosh = widest(name.filter((s) => fill(s) === "rgb(221, 205, 18)"));
+        const letters = name
+          .filter((s) => s !== swoosh && box(s).width >= 4.5)
+          .sort((a, b) => box(a).x - box(b).x)
+          .map((s) => [s]);
+        // the small bits (counters, the tail of the y) go with the letter
+        // they sit in
+        name
+          .filter((s) => s !== swoosh && box(s).width < 4.5)
+          .forEach((bit) => {
+            const b = box(bit);
+            const cx = b.x + b.width / 2;
+            const cy = b.y + b.height / 2;
+            const letter = letters.find(([l]) => {
+              const lb = box(l);
+              return cx >= lb.x && cx <= lb.x + lb.width && cy >= lb.y && cy <= lb.y + lb.height;
+            });
+            if (letter) letter.push(bit);
+          });
+        const white = right.filter((s) => fill(s) === "rgb(255, 255, 255)");
+        return [[outline], ...letters, [swoosh], white, right.filter((s) => !white.includes(s))];
+      },
+    },
+    // the red name and the yellow corners stay lit; the blue frame and the
+    // white lines above and below come on a moment later
+    toshiba: {
+      cycle: 8,
+      offAt: 6.5,
+      onAt: [1.5],
+      steps(shapes) {
+        const hue = (s) => d3.hsl(getComputedStyle(s).fill);
+        return [
+          shapes.filter((s) => {
+            const { h, s: sat, l } = hue(s);
+            return l > 0.95 || (sat > 0.3 && h > 190 && h < 250);
+          }),
+        ];
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
-  // drawn as a copy under the sign's glowing group rather than by
-  // recoloring the tube itself: the glow is a drop-shadow over the whole
-  // group, so anything opaque inside it would still give off a halo; only a
-  // lit tube glows.
+  // drawn as a copy over the sign's glowing group, shown only while the
+  // tube is off, rather than by recoloring the tube itself: the glow is a
+  // drop-shadow over the whole group, so anything opaque inside it would
+  // still give off a halo; only a lit tube glows.
   const LIGHT_OFF_SATURATION = 0.75;
   const LIGHT_OFF_LIGHTNESS = 0.5;
   function unlitColor(color) {
@@ -1191,30 +1246,42 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       if (!sequence || (owner && owner.dataset.logo === sign.dataset.logo)) return;
       const shapes = Array.from(sign.querySelectorAll("path, line, polyline, polygon, rect"));
       const steps = sequence.steps(shapes, sign);
-      steps.flat().forEach(addUnlitCopy);
+      // copies added in drawing order, so they stack like the tubes do
+      const copies = new Map();
+      steps
+        .flat()
+        .sort((a, b) => (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+        .forEach((tube) => copies.set(tube, addUnlitCopy(tube)));
       // indices taken after steps() and the copies, which change the tree
       const all = Array.from(sign.querySelectorAll("*"));
-      const plan = steps.map((step) => step.map((s) => all.indexOf(s)));
+      const plan = steps.map((step) => ({
+        tubes: step.map((s) => all.indexOf(s)),
+        copies: step.map((s) => all.indexOf(copies.get(s))),
+      }));
       lightSequencePlans.set(key, plan);
       playLightSequence(sign, key);
     });
   }
 
-  // The copy sits right before the tube's .glow-unit (or the tube), in its
-  // parent, with the transforms in between baked in. Logo wall clones are
-  // taken after this and carry their copies along.
+  // The copy sits right after the tube's .glow-unit (or the tube), in its
+  // parent, with the transforms in between baked in -- over the lit tubes,
+  // so an unlit letter isn't hidden behind a lit backing shape (Burghy's
+  // red outline). Hidden by default (an attribute, which the logo wall's
+  // clone cleanup leaves alone): with reduced motion, nothing ever goes
+  // off. Logo wall clones are taken after this and carry their copies.
   function addUnlitCopy(tube) {
     // a tube outside any glowing group (YKK's illustration) has no halo to
-    // escape: its copy goes right under it
+    // escape: its copy goes right over it
     const glowUnit = tube.closest(".glow-unit") || tube;
-    let layer = glowUnit.previousElementSibling;
+    let layer = glowUnit.nextElementSibling;
     if (!layer || !layer.classList.contains("unlit-tubes")) {
       layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
       layer.classList.add("unlit-tubes");
-      glowUnit.parentNode.insertBefore(layer, glowUnit);
+      glowUnit.after(layer);
     }
     const copy = tube.cloneNode(false);
     copy.removeAttribute("id");
+    copy.setAttribute("opacity", "0");
     const style = getComputedStyle(tube);
     copy.setAttribute("fill", unlitColor(style.fill));
     copy.setAttribute("stroke", unlitColor(style.stroke));
@@ -1223,6 +1290,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     wrapper.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
     wrapper.appendChild(copy);
     layer.appendChild(wrapper);
+    return copy;
   }
 
   function playLightSequence(sign, key) {
@@ -1233,16 +1301,17 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     plan.forEach((step, i) => {
       const on = typeof onAt === "function" ? onAt(i) : onAt[i];
       // hard on/off switches, no fade: "step-end" holds each value until
-      // the next keyframe
-      const keyframes = [
-        { offset: 0, opacity: 0, easing: "step-end" },
-        { offset: on / cycle, opacity: 1, easing: "step-end" },
-        { offset: offAt / cycle, opacity: 0, easing: "step-end" },
-        { offset: 1, opacity: 0 },
+      // the next keyframe. The tube goes transparent while off, its unlit
+      // copy over it opaque.
+      const keyframes = (off, lit) => [
+        { offset: 0, opacity: off, easing: "step-end" },
+        { offset: on / cycle, opacity: lit, easing: "step-end" },
+        { offset: offAt / cycle, opacity: off, easing: "step-end" },
+        { offset: 1, opacity: off },
       ];
-      step.forEach((index) => {
-        all[index].animate(keyframes, { duration: cycle * 1000, iterations: Infinity });
-      });
+      const timing = { duration: cycle * 1000, iterations: Infinity };
+      step.tubes.forEach((index) => all[index].animate(keyframes(0, 1), timing));
+      step.copies.forEach((index) => all[index].animate(keyframes(1, 0), timing));
     });
   }
 
