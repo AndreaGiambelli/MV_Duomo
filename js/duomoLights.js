@@ -1088,6 +1088,16 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
           .map((s) => [s]);
       },
     },
+    // B-U-L-O-V-A one letter at a time (the clocks below are signs of
+    // their own and keep running)
+    bulova: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.45,
+      steps(shapes) {
+        return shapes.sort((a, b) => a.getBBox().x - b.getBBox().x).map((s) => [s]);
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
