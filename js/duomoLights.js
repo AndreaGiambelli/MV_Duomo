@@ -888,18 +888,25 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // after another, held, then all went dark and the cycle started again.
   // Each entry splits a sign's lit shapes into steps (by geometry, not by
   // Figma layer names, so it survives re-exports) and says when each step
-  // turns on within one cycle, in seconds; everything goes off at offAt.
-  // Off isn't fully invisible -- an unlit tube still reads faintly.
+  // turns on within one cycle, in seconds (a list, or a function of the
+  // step's index); everything goes off at offAt. Shapes in no step stay lit
+  // all the time.
   const LIGHT_SEQUENCES = {
     technics: {
       cycle: 8,
       offAt: 6.5,
       onAt: [0.6, 0.95, 1.3, 1.65, 2.0, 2.6, 3.2],
       // the stripes under the name from the top one down (left and right
-      // halves of each stripe together), then the name, then the top line
-      steps(shapes) {
-        const lines = shapes.filter((s) => getComputedStyle(s).stroke !== "none");
-        const name = shapes.filter((s) => !lines.includes(s));
+      // halves of each stripe together), then the name, then the top line;
+      // the dark backing panel isn't a tube and stays as it is
+      steps(shapes, sign) {
+        const signBox = sign.getBBox();
+        const tubes = shapes.filter((s) => {
+          const box = s.getBBox();
+          return box.width * box.height < signBox.width * signBox.height * 0.5;
+        });
+        const lines = tubes.filter((s) => getComputedStyle(s).stroke !== "none");
+        const name = tubes.filter((s) => !lines.includes(s));
         const top = Math.min(...lines.map((s) => s.getBBox().y));
         const stripes = d3.groups(
           lines.filter((s) => s.getBBox().y > top + 1),
@@ -912,8 +919,144 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // the white outline around the J, V and C only comes on now and then;
+    // the HI-FI below is white too, but sits in the lower half
+    jvc: {
+      cycle: 13,
+      offAt: 11,
+      onAt: [7.5],
+      steps(shapes, sign) {
+        const signBox = sign.getBBox();
+        return [
+          shapes.filter(
+            (s) =>
+              getComputedStyle(s).fill === "rgb(255, 255, 255)" &&
+              s.getBBox().y < signBox.y + signBox.height / 2
+          ),
+        ];
+      },
+    },
+    // the letters of the name one at a time, left to right; the K symbol
+    // (taller) and the small HI-FI stay lit
+    kenwood: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.4,
+      steps(shapes, sign) {
+        const signHeight = sign.getBBox().height;
+        return shapes
+          .filter((s) => {
+            const h = s.getBBox().height / signHeight;
+            return h > 0.35 && h < 0.7;
+          })
+          .sort((a, b) => a.getBBox().x - b.getBBox().x)
+          .map((s) => [s]);
+      },
+    },
+    // same, but the name is drawn as one compound path (the widest shape),
+    // split here into one path per letter first
+    ariston: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: (i) => 0.5 + i * 0.4,
+      steps(shapes) {
+        const name = shapes.reduce((a, b) => (b.getBBox().width > a.getBBox().width ? b : a));
+        return splitIntoLetters(name).map((s) => [s]);
+      },
+    },
+    // the red outline, then "acqua minerale" (white), then the name
+    ferrarelle: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2],
+      steps(shapes) {
+        const outline = shapes.reduce((a, b) => (b.getBBox().width > a.getBBox().width ? b : a));
+        const white = (s) => getComputedStyle(s).fill === "rgb(255, 255, 255)";
+        return [
+          [outline],
+          shapes.filter((s) => s !== outline && white(s)),
+          shapes.filter((s) => s !== outline && !white(s)),
+        ];
+      },
+    },
   };
-  const LIGHT_OFF_OPACITY = 0.04;
+  // An unlit tube keeps its own hue, a little less saturated and darker --
+  // opaque, so the backing panel and the facade never show through it. It's
+  // drawn as a copy under the sign's glowing group rather than by
+  // recoloring the tube itself: the glow is a drop-shadow over the whole
+  // group, so anything opaque inside it would still give off a halo; only a
+  // lit tube glows.
+  const LIGHT_OFF_SATURATION = 0.75;
+  const LIGHT_OFF_LIGHTNESS = 0.5;
+  function unlitColor(color) {
+    const hsl = d3.hsl(color);
+    if (isNaN(hsl.l)) return color; // "none"
+    if (!isNaN(hsl.s)) hsl.s *= LIGHT_OFF_SATURATION;
+    hsl.l *= LIGHT_OFF_LIGHTNESS;
+    return hsl.formatRgb();
+  }
+
+
+  // Replaces a compound path (several "M..." subpaths, absolute commands
+  // only, as Figma exports them) with one path per letter, left to right.
+  // A subpath inside another one's box is that letter's counter (the hole
+  // in an A, R or O) and stays in the same path, so evenodd still cuts it.
+  function splitIntoLetters(path) {
+    const d = path.getAttribute("d");
+    if (/[a-y]/.test(d.replace(/z/gi, ""))) return [path]; // relative commands: leave as is
+    const subpaths = d.split(/(?=M)/).map((part) => {
+      const piece = path.cloneNode(false);
+      piece.removeAttribute("id");
+      piece.setAttribute("d", part);
+      path.parentNode.insertBefore(piece, path);
+      return { piece, box: piece.getBBox() };
+    });
+    const inside = (a, b) =>
+      a !== b &&
+      a.box.x >= b.box.x &&
+      a.box.y >= b.box.y &&
+      a.box.x + a.box.width <= b.box.x + b.box.width &&
+      a.box.y + a.box.height <= b.box.y + b.box.height;
+    const letters = subpaths.filter((a) => !subpaths.some((b) => inside(a, b)));
+    subpaths.forEach((a) => {
+      const outer = letters.find((b) => inside(a, b));
+      if (!outer) return;
+      outer.piece.setAttribute("d", outer.piece.getAttribute("d") + a.piece.getAttribute("d"));
+      a.piece.remove();
+    });
+    path.remove();
+    // Letters drawn joined (ARISTON's A and R are one outline) come out as
+    // one piece about twice as wide as the rest: cut it into equal slices
+    // with clip-paths, one per letter.
+    const widths = letters.map((letter) => letter.box.width).sort((a, b) => a - b);
+    const median = widths[Math.floor(widths.length / 2)];
+    return letters
+      .sort((a, b) => a.box.x - b.box.x)
+      .flatMap(({ piece, box }) => {
+        const count = Math.round(box.width / median);
+        if (count < 2) return [piece];
+        const slices = d3.range(count).map((i) => {
+          const clip = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+          clip.id = `letter-clip-${++letterClipCount}`;
+          clip.setAttribute("clipPathUnits", "userSpaceOnUse");
+          const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          const width = box.width / count;
+          rect.setAttribute("x", box.x + i * width);
+          rect.setAttribute("y", box.y - 1);
+          rect.setAttribute("width", width);
+          rect.setAttribute("height", box.height + 2);
+          clip.appendChild(rect);
+          const slice = piece.cloneNode(false);
+          slice.setAttribute("clip-path", `url(#${clip.id})`);
+          piece.parentNode.insertBefore(clip, piece);
+          piece.parentNode.insertBefore(slice, piece);
+          return slice;
+        });
+        piece.remove();
+        return slices;
+      });
+  }
+  let letterClipCount = 0;
 
   // Steps are stored as indices into sign.querySelectorAll("*") so the
   // logo wall's clones (same structure, see buildLogoWall) can replay the
@@ -927,19 +1070,39 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       const sequence = LIGHT_SEQUENCES[key];
       const owner = sign.parentElement.closest("[data-logo]");
       if (!sequence || (owner && owner.dataset.logo === sign.dataset.logo)) return;
-      // the dark backing panel stays as it is, only the lit tubes switch
-      const signBox = sign.getBBox();
-      const shapes = Array.from(sign.querySelectorAll("path, line, polyline, polygon, rect")).filter(
-        (s) => {
-          const box = s.getBBox();
-          return box.width * box.height < signBox.width * signBox.height * 0.5;
-        }
-      );
+      const shapes = Array.from(sign.querySelectorAll("path, line, polyline, polygon, rect"));
+      const steps = sequence.steps(shapes, sign);
+      steps.flat().forEach(addUnlitCopy);
+      // indices taken after steps() and the copies, which change the tree
       const all = Array.from(sign.querySelectorAll("*"));
-      const plan = sequence.steps(shapes).map((step) => step.map((s) => all.indexOf(s)));
+      const plan = steps.map((step) => step.map((s) => all.indexOf(s)));
       lightSequencePlans.set(key, plan);
       playLightSequence(sign, key);
     });
+  }
+
+  // The copy sits right before the tube's .glow-unit, in that group's
+  // parent, with the transforms in between baked in. Logo wall clones are
+  // taken after this and carry their copies along.
+  function addUnlitCopy(tube) {
+    const glowUnit = tube.closest(".glow-unit");
+    if (!glowUnit) return;
+    let layer = glowUnit.previousElementSibling;
+    if (!layer || !layer.classList.contains("unlit-tubes")) {
+      layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      layer.classList.add("unlit-tubes");
+      glowUnit.parentNode.insertBefore(layer, glowUnit);
+    }
+    const copy = tube.cloneNode(false);
+    copy.removeAttribute("id");
+    const style = getComputedStyle(tube);
+    copy.setAttribute("fill", unlitColor(style.fill));
+    copy.setAttribute("stroke", unlitColor(style.stroke));
+    const m = glowUnit.parentNode.getCTM().inverse().multiply(tube.parentNode.getCTM());
+    const wrapper = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    wrapper.setAttribute("transform", `matrix(${m.a} ${m.b} ${m.c} ${m.d} ${m.e} ${m.f})`);
+    wrapper.appendChild(copy);
+    layer.appendChild(wrapper);
   }
 
   function playLightSequence(sign, key) {
@@ -948,13 +1111,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     const { cycle, offAt, onAt } = LIGHT_SEQUENCES[key];
     const all = sign.querySelectorAll("*");
     plan.forEach((step, i) => {
+      const on = typeof onAt === "function" ? onAt(i) : onAt[i];
       // hard on/off switches, no fade: "step-end" holds each value until
       // the next keyframe
       const keyframes = [
-        { offset: 0, opacity: LIGHT_OFF_OPACITY, easing: "step-end" },
-        { offset: onAt[i] / cycle, opacity: 1, easing: "step-end" },
-        { offset: offAt / cycle, opacity: LIGHT_OFF_OPACITY, easing: "step-end" },
-        { offset: 1, opacity: LIGHT_OFF_OPACITY },
+        { offset: 0, opacity: 0, easing: "step-end" },
+        { offset: on / cycle, opacity: 1, easing: "step-end" },
+        { offset: offAt / cycle, opacity: 0, easing: "step-end" },
+        { offset: 1, opacity: 0 },
       ];
       step.forEach((index) => {
         all[index].animate(keyframes, { duration: cycle * 1000, iterations: Infinity });
