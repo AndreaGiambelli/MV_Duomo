@@ -979,6 +979,51 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // the 1980-82 sign: "chiusure lampo" (blue), then "Yoshida Italia"
+    // (red), then YKK (yellow), then the illustration on the right
+    ykk2: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2, 3.0],
+      steps(shapes, sign) {
+        const signBox = sign.getBBox();
+        const isIllustration = (s) => s.getBBox().x > signBox.x + signBox.width * 0.8;
+        const illustration = shapes.filter(isIllustration);
+        const text = shapes.filter((s) => !isIllustration(s));
+        const hue = (s) => d3.hsl(getComputedStyle(s).fill).h;
+        return [
+          text.filter((s) => hue(s) > 180 && hue(s) < 270),
+          text.filter((s) => hue(s) < 20 || hue(s) > 340),
+          text.filter((s) => hue(s) > 40 && hue(s) < 80),
+          illustration,
+        ];
+      },
+    },
+    // the illustration on the left stays lit; "apri", "l'occhio,", "bevi"
+    // (yellow, one word at a time), then the name
+    giommi: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2, 3.0],
+      steps(shapes, sign) {
+        const signBox = sign.getBBox();
+        const lettering = shapes.filter((s) => s.getBBox().x > signBox.x + signBox.width * 0.18);
+        const isTagline = (s) => getComputedStyle(s).fill === "rgb(241, 234, 50)";
+        const words = [];
+        let previousEnd = -Infinity;
+        lettering
+          .filter(isTagline)
+          .sort((a, b) => a.getBBox().x - b.getBBox().x)
+          .forEach((s) => {
+            const box = s.getBBox();
+            // letters within a word sit under 1 apart, words over 2
+            if (box.x - previousEnd > 1.5) words.push([]);
+            words[words.length - 1].push(s);
+            previousEnd = box.x + box.width;
+          });
+        return [...words, lettering.filter((s) => !isTagline(s))];
+      },
+    },
   };
   // An unlit tube keeps its own hue, a little less saturated and darker --
   // opaque, so the backing panel and the facade never show through it. It's
@@ -1081,12 +1126,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     });
   }
 
-  // The copy sits right before the tube's .glow-unit, in that group's
+  // The copy sits right before the tube's .glow-unit (or the tube), in its
   // parent, with the transforms in between baked in. Logo wall clones are
   // taken after this and carry their copies along.
   function addUnlitCopy(tube) {
-    const glowUnit = tube.closest(".glow-unit");
-    if (!glowUnit) return;
+    // a tube outside any glowing group (YKK's illustration) has no halo to
+    // escape: its copy goes right under it
+    const glowUnit = tube.closest(".glow-unit") || tube;
     let layer = glowUnit.previousElementSibling;
     if (!layer || !layer.classList.contains("unlit-tubes")) {
       layer = document.createElementNS("http://www.w3.org/2000/svg", "g");
