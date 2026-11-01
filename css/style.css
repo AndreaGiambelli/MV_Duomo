@@ -209,7 +209,7 @@ body {
   pointer-events: none;
 }
 
-#seq-titles svg {
+#seq-titles > svg {
   display: block;
   width: 100%;
   height: auto;
@@ -229,7 +229,9 @@ body {
   pointer-events: none;
 }
 
-#seq-credits svg {
+/* > svg: credits.svg nests the MM logo as an <svg> of its own, which
+   these would otherwise pull out of place (over the credit lines) */
+#seq-credits > svg {
   display: block;
   height: auto;
   margin: 0 auto;
@@ -631,7 +633,7 @@ body.render-vertical #seq-title {
   width: calc(50vw * 422 / 490);
 }
 
-body.render-vertical #seq-titles svg {
+body.render-vertical #seq-titles > svg {
   position: absolute;
   left: 50%;
   top: 50%;
@@ -639,6 +641,6 @@ body.render-vertical #seq-titles svg {
   transform: translate(-50%, -50%);
 }
 
-body.render-vertical #seq-credits svg {
+body.render-vertical #seq-credits > svg {
   width: 85vw !important;
 }
