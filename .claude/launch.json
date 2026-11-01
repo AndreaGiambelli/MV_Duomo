@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["serve.py", "8743"],
       "port": 8743
+    },
+    {
+      "name": "cronologia",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8010", "--directory", "/Users/ag/Downloads/06_PiazzaDuomo/Lights"],
+      "port": 8010
     }
   ]
 }

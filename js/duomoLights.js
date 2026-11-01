@@ -862,7 +862,12 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       }
       group.style.setProperty("--flicker-delay", `${(-Math.random() * 9).toFixed(2)}s`);
 
-      const parts = Array.from(group.children).filter((c) => c.tagName === "g");
+      // A layer named only to group a light sequence's steps (cocacola1's
+      // Main/Side) isn't a part of its own: its sub-groups glow in their
+      // own colors, as they did before the layer existed.
+      const parts = Array.from(group.children)
+        .filter((c) => c.tagName === "g")
+        .flatMap((c) => (isSequenceLayer(c) ? Array.from(c.children).filter((k) => k.tagName === "g") : [c]));
 
       if (parts.length === 0) {
         // A flat sign's flicker animation lands on this exact group -- and
@@ -912,6 +917,11 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // lit all the time.
   // One step per Figma layer the user named for its sequence (re-exports
   // can suffix a repeated name: Arm1_2), its shapes in drawing order.
+  const SEQUENCE_LAYERS = ["Main", "Side"];
+  function isSequenceLayer(el) {
+    return SEQUENCE_LAYERS.some((name) => new RegExp(`^${name}(_\\d+)?$`).test(el.id));
+  }
+
   function layerSteps(shapes, sign, names) {
     return names.map((name) =>
       Array.from(sign.querySelectorAll(`[id^="${name}"] *`)).filter((s) => shapes.includes(s))
@@ -1213,7 +1223,7 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
           const fill = getComputedStyle(s).fill;
           return fill === "none" || d3.hsl(fill).l > 0.25;
         });
-        return layerSteps(lit, sign, ["Main", "Side"]);
+        return layerSteps(lit, sign, SEQUENCE_LAYERS);
       },
     },
     // green "3 Valletti", then the blue of "Sarti", then its white outline;
@@ -1623,7 +1633,16 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       });
     });
     if (counts.size === 0) return null;
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+    // a very dark color is a backing panel behind the tubes, not light
+    // (cocacola1's #3F0100 would tie with its red and win): it only counts
+    // when there's nothing brighter -- the same cut-off as the title
+    // neons' brightColor()
+    const entries = [...counts.entries()];
+    const bright = entries.filter(([color]) => {
+      const { r, g, b } = d3.rgb(color);
+      return Math.max(r, g, b) >= 70;
+    });
+    return (bright.length ? bright : entries).sort((a, b) => b[1] - a[1])[0][0];
   }
 
   function isNeutralColor(hex) {
