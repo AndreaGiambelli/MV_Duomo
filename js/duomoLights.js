@@ -910,14 +910,20 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // a list, one per step -- a step that goes off earlier in the cycle than
   // it comes on stays lit across the cycle's end). Shapes in no step stay
   // lit all the time.
+  // One step per Figma layer the user named for its sequence (re-exports
+  // can suffix a repeated name: Arm1_2), its shapes in drawing order.
+  function layerSteps(shapes, sign, names) {
+    return names.map((name) =>
+      Array.from(sign.querySelectorAll(`[id^="${name}"] *`)).filter((s) => shapes.includes(s))
+    );
+  }
+
   const KORES_ARMS = {
     cycle: 0.5,
     onAt: [0, 0.25],
     offAt: [0.32, 0.07],
     steps(shapes, sign) {
-      return ["Arm1", "Arm2"].map((name) =>
-        Array.from(sign.querySelectorAll(`[id^="${name}"] *`)).filter((s) => shapes.includes(s))
-      );
+      return layerSteps(shapes, sign, ["Arm1", "Arm2"]);
     },
   };
 
@@ -1195,6 +1201,21 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     // for a moment at every swap
     kores1: KORES_ARMS,
     kores2: KORES_ARMS,
+    // layer Main ("Bevete Coca-Cola"), then layer Side (the roundel with
+    // the boy and the bottle); "Neon Scolari" below stays lit, and so do
+    // the dark backing panels, which aren't tubes
+    cocacola1: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.6],
+      steps(shapes, sign) {
+        const lit = shapes.filter((s) => {
+          const fill = getComputedStyle(s).fill;
+          return fill === "none" || d3.hsl(fill).l > 0.25;
+        });
+        return layerSteps(lit, sign, ["Main", "Side"]);
+      },
+    },
     // green "3 Valletti", then the blue of "Sarti", then its white outline;
     // the dark backing of "3 Valletti" isn't a tube and stays as it is
     sarti: {
