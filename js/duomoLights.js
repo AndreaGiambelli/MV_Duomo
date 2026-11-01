@@ -843,10 +843,13 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // A part whose own color is too dark to show as a halo, glowing in a
   // brighter one picked by hand instead: the navy upper half of the Kores
   // K square, whose #1D0B80 glow was invisible, leaving the red half's
-  // halo all around it. Keyed by logo, then by the accent color found.
+  // halo all around it. Also white tubes over a tinted fill (marzotto's
+  // star and dots), whose fill would otherwise set the glow. Keyed by logo,
+  // then by the accent color found.
   const GLOW_COLOR_OVERRIDES = {
     kores1: { "#1D0B80": "#3060FF" },
     kores2: { "#1D0B80": "#3060FF" },
+    marzotto: { "#C8DCF6": "#FFFFFF", "#5F95A3": "#FFFFFF" },
   };
 
   // Gives each logo a neon-style glow in its own accent color, derived from
@@ -873,10 +876,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
       // A layer named only to group a light sequence's steps (cocacola1's
       // Main/Side) isn't a part of its own: its sub-groups glow in their
-      // own colors, as they did before the layer existed.
-      const parts = Array.from(group.children)
-        .filter((c) => c.tagName === "g")
-        .flatMap((c) => (isSequenceLayer(c) ? Array.from(c.children).filter((k) => k.tagName === "g") : [c]));
+      // own colors, as they did before the layer existed. Likewise a part
+      // holding a layer the user named "White" (marzotto's white tubes,
+      // drawn beside orange-outlined letters) is split into its sub-groups,
+      // so the white layer glows white instead of in the letters' orange.
+      const subGroups = (el) => Array.from(el.children).filter((k) => k.tagName === "g");
+      const parts = subGroups(group).flatMap((c) =>
+        isSequenceLayer(c) || subGroups(c).some((k) => k.id === "White") ? subGroups(c) : [c]
+      );
 
       if (parts.length === 0) {
         // A flat sign's flicker animation lands on this exact group -- and
@@ -1247,7 +1254,20 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         // the white paths inside "3 Valletti"'s <mask> only cut its outline
         const tubes = shapes.filter((s) => !s.closest("mask"));
         const fill = (color) => tubes.filter((s) => getComputedStyle(s).fill === color);
-        return [fill("rgb(0, 223, 145)"), fill("rgb(44, 109, 238)"), fill("rgb(255, 255, 255)")];
+        const valletti = fill("rgb(0, 223, 145)");
+        // its dark backing shares the tube's glowing group and would keep
+        // haloing green while the tube is off: the glow moves to the tube
+        valletti.forEach((tube) => {
+          const unit = tube.closest(".glow-unit");
+          if (!unit) return;
+          const glow = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          glow.classList.add("glow-unit");
+          glow.style.setProperty("--glow-color", unit.style.getPropertyValue("--glow-color"));
+          tube.before(glow);
+          glow.appendChild(tube);
+          unit.classList.remove("glow-unit");
+        });
+        return [valletti, fill("rgb(44, 109, 238)"), fill("rgb(255, 255, 255)")];
       },
     },
     // "Banca", "Agricola", "Milanese", one word at a time (letters within
