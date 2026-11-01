@@ -906,8 +906,21 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   // Each entry splits a sign's lit shapes into steps (by geometry, not by
   // Figma layer names, so it survives re-exports) and says when each step
   // turns on within one cycle, in seconds (a list, or a function of the
-  // step's index); everything goes off at offAt. Shapes in no step stay lit
-  // all the time.
+  // step's index); everything goes off at offAt (one time for all steps, or
+  // a list, one per step -- a step that goes off earlier in the cycle than
+  // it comes on stays lit across the cycle's end). Shapes in no step stay
+  // lit all the time.
+  const KORES_ARMS = {
+    cycle: 0.5,
+    onAt: [0, 0.25],
+    offAt: [0.32, 0.07],
+    steps(shapes, sign) {
+      return ["Arm1", "Arm2"].map((name) =>
+        Array.from(sign.querySelectorAll(`[id^="${name}"] *`)).filter((s) => shapes.includes(s))
+      );
+    },
+  };
+
   const LIGHT_SEQUENCES = {
     technics: {
       cycle: 8,
@@ -1177,6 +1190,24 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // the typist's two arms, drawn as layers Arm1 and Arm2 for exactly
+    // this (picked by name, unlike the rest), take turns nonstop, both lit
+    // for a moment at every swap
+    kores1: KORES_ARMS,
+    kores2: KORES_ARMS,
+    // green "3 Valletti", then the blue of "Sarti", then its white outline;
+    // the dark backing of "3 Valletti" isn't a tube and stays as it is
+    sarti: {
+      cycle: 7,
+      offAt: 5.5,
+      onAt: [0.6, 1.4, 2.2],
+      steps(shapes) {
+        // the white paths inside "3 Valletti"'s <mask> only cut its outline
+        const tubes = shapes.filter((s) => !s.closest("mask"));
+        const fill = (color) => tubes.filter((s) => getComputedStyle(s).fill === color);
+        return [fill("rgb(0, 223, 145)"), fill("rgb(44, 109, 238)"), fill("rgb(255, 255, 255)")];
+      },
+    },
     // "Banca", "Agricola", "Milanese", one word at a time (letters within
     // a word under 2 apart, words about 7)
     bancaagricolami: {
@@ -1401,13 +1432,14 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     const all = sign.querySelectorAll("*");
     plan.forEach((step, i) => {
       const on = typeof onAt === "function" ? onAt(i) : onAt[i];
+      const off = Array.isArray(offAt) ? offAt[i] : offAt;
       const period = blink[i] || 0;
       // the tube goes transparent while off, its unlit copy over it opaque
       step.tubes.forEach((index) =>
-        lightSwitches.push({ el: all[index], cycle, on, off: offAt, period, lit: 1, unlit: 0, shown: null })
+        lightSwitches.push({ el: all[index], cycle, on, off, period, lit: 1, unlit: 0, shown: null })
       );
       step.copies.forEach((index) =>
-        lightSwitches.push({ el: all[index], cycle, on, off: offAt, period, lit: 0, unlit: 1, shown: null })
+        lightSwitches.push({ el: all[index], cycle, on, off, period, lit: 0, unlit: 1, shown: null })
       );
     });
   }
@@ -1417,7 +1449,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   function updateLightSequences(t) {
     lightSwitches.forEach((s) => {
       const phase = ((t % s.cycle) + s.cycle) % s.cycle;
-      const on = phase >= s.on && phase < s.off && (!s.period || (phase - s.on) % s.period < s.period / 2);
+      // a window ending before it starts runs on across the cycle's end
+      const inWindow = s.on < s.off ? phase >= s.on && phase < s.off : phase >= s.on || phase < s.off;
+      const sinceOn = (phase - s.on + s.cycle) % s.cycle;
+      const on = inWindow && (!s.period || sinceOn % s.period < s.period / 2);
       const value = on ? s.lit : s.unlit;
       if (value === s.shown) return;
       s.el.style.opacity = value;
