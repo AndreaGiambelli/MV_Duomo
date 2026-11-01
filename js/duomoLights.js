@@ -1160,6 +1160,23 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
         ];
       },
     },
+    // white "Brill", then the three blue lines, which then blink (half a
+    // second on, half off); the illustration and red frame stay lit
+    brill: {
+      cycle: 9,
+      offAt: 8,
+      onAt: [0.6, 1.4],
+      blink: [0, 1],
+      steps(shapes, sign) {
+        const fill = (s) => d3.hsl(getComputedStyle(s).fill);
+        const box = sign.getBBox();
+        // white below the illustration (its own white bits are mask strokes)
+        return [
+          shapes.filter((s) => fill(s).l > 0.95 && s.getBBox().y > box.y + box.height * 0.7),
+          shapes.filter((s) => s.tagName === "rect" && fill(s).h > 200 && fill(s).h < 250),
+        ];
+      },
+    },
     // "Banca", "Agricola", "Milanese", one word at a time (letters within
     // a word under 2 apart, words about 7)
     bancaagricolami: {
@@ -1380,25 +1397,28 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   function playLightSequence(sign, key) {
     const plan = lightSequencePlans.get(key);
     if (!plan || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const { cycle, offAt, onAt } = LIGHT_SEQUENCES[key];
+    const { cycle, offAt, onAt, blink = [] } = LIGHT_SEQUENCES[key];
     const all = sign.querySelectorAll("*");
     plan.forEach((step, i) => {
       const on = typeof onAt === "function" ? onAt(i) : onAt[i];
+      const period = blink[i] || 0;
       // the tube goes transparent while off, its unlit copy over it opaque
       step.tubes.forEach((index) =>
-        lightSwitches.push({ el: all[index], cycle, on, off: offAt, lit: 1, unlit: 0, shown: null })
+        lightSwitches.push({ el: all[index], cycle, on, off: offAt, period, lit: 1, unlit: 0, shown: null })
       );
       step.copies.forEach((index) =>
-        lightSwitches.push({ el: all[index], cycle, on, off: offAt, lit: 0, unlit: 1, shown: null })
+        lightSwitches.push({ el: all[index], cycle, on, off: offAt, period, lit: 0, unlit: 1, shown: null })
       );
     });
   }
 
-  // t in seconds: hard on/off switches, no fade
+  // t in seconds: hard on/off switches, no fade; a step with a blink
+  // period spends the first half of each period on, the second off
   function updateLightSequences(t) {
     lightSwitches.forEach((s) => {
       const phase = ((t % s.cycle) + s.cycle) % s.cycle;
-      const value = phase >= s.on && phase < s.off ? s.lit : s.unlit;
+      const on = phase >= s.on && phase < s.off && (!s.period || (phase - s.on) % s.period < s.period / 2);
+      const value = on ? s.lit : s.unlit;
       if (value === s.shown) return;
       s.el.style.opacity = value;
       s.shown = value;
