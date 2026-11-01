@@ -161,7 +161,9 @@ body {
   position: absolute;
   inset: 0;
   z-index: 3;
-  background: linear-gradient(to bottom, #18042e, #000000);
+  /* true black over the gradient, faded out at the very start */
+  background: linear-gradient(rgb(0 0 0 / var(--deep-black, 0)), rgb(0 0 0 / var(--deep-black, 0))),
+    linear-gradient(to bottom, #18042e, #000000);
   opacity: 0;
   pointer-events: none;
 }

@@ -209,7 +209,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   }
 
   // Storyboard for the recorded video, timed on the song's clock (seconds):
-  // black until 0:12 (with the MM title card shown 0:02-0:06), fading to the
+  // pure black for a moment, quickly giving way to the purple-to-black
+  // gradient, which holds until 0:12 (with the MM title card fully shown
+  // 0:02.5-0:06), fading to the
   // bare street plate by 0:15; the usual year sequence (1945 lands at
   // 0:20.3, 2000 at 3:00) held on 2000 until it fades back to black over
   // 3:02-3:05; black with the end credits rolling until 3:18.5, then black
@@ -220,25 +222,29 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
   const SEQ_FADE_OUT_START = 3 * 60 + 2;
   const SEQ_FADE_OUT_END = 3 * 60 + 5;
   const SEQ_END = 3 * 60 + 20;
-  // Things shown on the black screen ease in from their start time and
-  // out from their end time, each over this long.
+  // The very first frames are true black: the gradient shows through it
+  // over this long from 0:00.
+  const SEQ_DEEP_BLACK_FADE = 0.8;
+  // The song-title signs go out over this long as the street comes in.
   const SEQ_CARD_EASE = 0.5;
-  const SEQ_TITLE_WINDOWS = [[2, 6]];
+  // The MM card and the title sign are fully shown over their windows
+  // (seconds), slowly easing in before the start and out after the end.
+  const SEQ_TITLE_FADE = 1.2;
+  const SEQ_TITLE_WINDOWS = [[2.5, 6]];
   // The song-title signs (svg/title_neons.svg) light up one by one, in a
-  // shuffled order, on the black screen behind the MM card: the first half
-  // a second after the card starts to appear, the last at SEQ_NEON_LAST,
+  // shuffled order, on the black screen behind the MM card: the first as
+  // the card is fully shown, the last at SEQ_NEON_LAST,
   // evenly spaced, each with the facade signs' 0.35s fade-in. All go out
   // together over SEQ_CARD_EASE from SEQ_FADE_IN_START, as the street
   // starts to show through.
-  const SEQ_NEON_FIRST = SEQ_TITLE_WINDOWS[0][0] + 0.5;
+  const SEQ_NEON_FIRST = SEQ_TITLE_WINDOWS[0][0];
   const SEQ_NEON_LAST = SEQ_FADE_IN_START - 1;
   const SEQ_NEON_FADE = 0.35;
   // The "Milan me bel belèe" title sign (svg/title_card.svg) takes the
-  // centre in front of them: from a second after the MM card has gone until
-  // 1.5s before the street starts fading in, easing like the MM card.
-  const SEQ_TITLE_CARD_WINDOWS = [
-    [SEQ_TITLE_WINDOWS[0][1] + SEQ_CARD_EASE + 1, SEQ_FADE_IN_START - 1.5],
-  ];
+  // centre in front of them: fully shown from 2s after the MM card starts
+  // to go until 1.5s before the street starts fading in, easing like the
+  // MM card (the two cross briefly while one goes and the other comes).
+  const SEQ_TITLE_CARD_WINDOWS = [[SEQ_TITLE_WINDOWS[0][1] + 2, SEQ_FADE_IN_START - 1.5]];
   // Before any year is on screen, the year caption's slot names the place
   // instead -- from a second into the street fading in until shortly before
   // 1945 takes the slot over (fading out by then, so 1945 arrives on a
@@ -292,10 +298,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   function seqTitleOpacity(t, windows = SEQ_TITLE_WINDOWS) {
     for (const [from, to] of windows) {
-      if (t >= from && t < to + SEQ_CARD_EASE) {
+      if (t >= from - SEQ_TITLE_FADE && t < to + SEQ_TITLE_FADE) {
         return Math.min(
-          easeInOut((t - from) / SEQ_CARD_EASE),
-          1 - easeInOut((t - to) / SEQ_CARD_EASE)
+          easeInOut((t - from + SEQ_TITLE_FADE) / SEQ_TITLE_FADE),
+          1 - easeInOut((t - to) / SEQ_TITLE_FADE)
         );
       }
     }
@@ -534,6 +540,10 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     seqLastFrame = now;
     seqTimer.textContent = formatSeqClock(seqClock);
     seqBlack.style.opacity = seqStarted ? seqBlackOpacity(seqClock) : 0;
+    seqBlack.style.setProperty(
+      "--deep-black",
+      seqStarted ? 1 - Math.min(1, seqClock / SEQ_DEEP_BLACK_FADE) : 0
+    );
     seqTitle.style.opacity = seqStarted ? seqTitleOpacity(seqClock) : 0;
     seqTitleCard.style.opacity = seqStarted
       ? seqTitleOpacity(seqClock, SEQ_TITLE_CARD_WINDOWS)
