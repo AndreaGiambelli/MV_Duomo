@@ -840,6 +840,15 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     )
   );
 
+  // A part whose own color is too dark to show as a halo, glowing in a
+  // brighter one picked by hand instead: the navy upper half of the Kores
+  // K square, whose #1D0B80 glow was invisible, leaving the red half's
+  // halo all around it. Keyed by logo, then by the accent color found.
+  const GLOW_COLOR_OVERRIDES = {
+    kores1: { "#1D0B80": "#3060FF" },
+    kores2: { "#1D0B80": "#3060FF" },
+  };
+
   // Gives each logo a neon-style glow in its own accent color, derived from
   // the artwork itself (the most common non-neutral fill/stroke in it) so
   // every logo stays coherent without being colored by hand. A sign drawn as
@@ -900,7 +909,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       });
       glowUnits.forEach((unit) => {
         unit.classList.add("glow-unit");
-        const color = pickAccentColor(unit);
+        const found = pickAccentColor(unit);
+        const overrides = GLOW_COLOR_OVERRIDES[normalizeLogoKey(group.dataset.logo)] || {};
+        const color = overrides[found] || found;
         if (color) unit.style.setProperty("--glow-color", color);
       });
     });
