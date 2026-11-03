@@ -1858,9 +1858,27 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   radialTimeline();
 
+  // For pages that drive the year themselves (articolo.html's scrollytelling,
+  // see js/article.js): set the year on the facade, the timeline and the
+  // slider together, the same way the song's clock does (syncYearToClock).
+  // The song, while it plays, owns the year -- isPlaying() lets the page
+  // stand aside instead of fighting it.
+  window.duomoLights = {
+    setYear(year) {
+      if (moving || year === currentYear) return;
+      currentYear = year;
+      updateProspetto(currentYear);
+      radialTimeline();
+      if (year !== null) slider.value(year);
+    },
+    isPlaying: () => moving,
+  };
+  document.dispatchEvent(new CustomEvent("duomolights:ready"));
+
   // Set up scrollama (not while rendering: its step previews would set
-  // a year of their own)
-  if (!RENDER) scroller
+  // a year of their own), nor on pages without these steps (articolo.html
+  // drives the year itself, see window.duomoLights above)
+  if (!RENDER && document.querySelector("#scrolly .scroll-p")) scroller
     .setup({
       step: "#scrolly .scroll-p",
       offset: 0.75,

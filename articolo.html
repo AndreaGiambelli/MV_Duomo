@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>Le luci in Duomo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Per mezzo secolo, sul palazzo di fronte al Duomo di Milano, si sono accese e spente più di cento insegne pubblicitarie. La loro storia, anno per anno."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=JetBrains+Mono:wght@400;500&display=swap"
+    />
+    <!-- the viz's own rules (facade layers, glow, logo wall, timeline)... -->
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- ...and the article's layout on top, overriding where the two differ -->
+    <link rel="stylesheet" href="css/article.css" />
+  </head>
+
+  <body>
+    <div class="read-progress" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="topbar__brand" href="#top">Le luci in Duomo</a>
+      <nav class="topbar__nav" aria-label="Sezioni">
+        <a href="#viz">Facciata</a>
+        <a href="#insegne">Insegne</a>
+        <a href="#cronologia">Cronologia</a>
+        <a href="#archivio">Archivio</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <!-- ============ HERO ============ -->
+      <section class="hero">
+        <div class="hero__glow" aria-hidden="true"></div>
+        <div class="hero__inner">
+          <p class="kicker">Milano · Piazza del Duomo · 1945–1999</p>
+          <h1 class="hero__title">
+            Le luci<br />
+            <em>in Duomo</em>
+          </h1>
+          <p class="hero__dek">
+            Per mezzo secolo, sul palazzo di fronte alla cattedrale, si sono accese e spente
+            più di cento insegne pubblicitarie. Messe in fila, raccontano come è cambiata
+            Milano, e cosa voleva comprare.
+          </p>
+          <p class="byline">
+            di <a href="https://www.andreagiambelli.com" target="_blank" rel="noopener">Andrea Giambelli</a>
+            · disegni di <a href="https://www.fraoprandi.com" target="_blank" rel="noopener">Francesca Oprandi</a>
+            · <time datetime="2026-11">Novembre 2026</time>
+          </p>
+        </div>
+        <a class="scroll-cue" href="#intro" aria-label="Inizia a leggere">
+          <span>Scorri</span>
+          <i aria-hidden="true"></i>
+        </a>
+      </section>
+
+      <!-- ============ INTRO ============ -->
+      <section id="intro" class="prose">
+        <p class="lede reveal">
+          I giornali la chiamavano “la Times Square di Milano”, Umberto Saba dedicò loro una
+          poesia, e per chi ha vissuto o frequentato Milano prima del 2000 sono un piccolo
+          ricordo indelebile: le insegne luminose di piazza del Duomo, montate su Palazzo
+          Carminati, proprio di fronte alla cattedrale.
+        </p>
+        <p class="reveal">
+          È difficile dire quando fu montata la prima. Di sicuro [da completare: la prima
+          attestazione certa, con anno e fonte]. Il palazzo era stato costruito nel
+          [da completare], e da allora fa da contraltare, profano e posizionato con una certa
+          precisione, a una delle facciate sacre più famose d’Italia.
+        </p>
+        <p class="reveal">
+          Per oltre cinquant’anni quelle luci hanno fatto da sfondo alle vite di migliaia di
+          persone: chi attraversava la piazza per andare al lavoro, chi ci si dava
+          appuntamento, chi ci arrivava in gita. Guardate anno per anno raccontano piuttosto
+          bene come è cambiata la città: cosa produceva, cosa comprava, cosa sognava di
+          comprare.
+        </p>
+      </section>
+
+      <!-- ============ FACADE SCROLLYTELLING ============ -->
+      <!-- Every id inside .stage is required by js/duomoLights.js, which
+           draws the facade into #map and drives the overlays/song. -->
+      <section id="viz" class="scrolly">
+        <div class="stage">
+          <div class="stage__frame">
+            <div id="map">
+              <img id="piazza-plate" class="piazza-layer" src="img/piazza_plate.jpg" alt="" />
+              <video id="piazza-bg" class="piazza-layer" muted loop playsinline>
+                <source src="video/piazza_timelapse.mp4" type="video/mp4" />
+              </video>
+              <div id="map-vignette"></div>
+              <div id="year-display"></div>
+              <div id="karaoke-line"></div>
+              <div id="seq-black"></div>
+              <!-- the video's MM card: kept for duomoLights.js, never shown here -->
+              <img id="seq-title" alt="" />
+              <img id="seq-title-card" src="svg/title_card.svg" alt="" />
+              <div id="seq-titles"></div>
+              <div id="seq-credits"></div>
+              <input id="seq-scrub" type="range" min="0" max="200" step="0.1" value="0" aria-hidden="true" tabindex="-1" />
+              <div id="seq-timer">00:00.0</div>
+            </div>
+          </div>
+          <audio id="song" src="audio/milan-me-bel-bele.mp3" preload="auto"></audio>
+
+          <div class="dock">
+            <button id="play-button" type="button">Play</button>
+            <div class="dock__year">
+              <span class="dock__label">Anno</span>
+              <p id="value">—</p>
+            </div>
+            <div id="slider"></div>
+          </div>
+        </div>
+
+        <div class="steps">
+          <article class="step" data-year="">
+            <div class="card">
+              <p class="card__year">La piazza al buio</p>
+              <p>Questo è Palazzo Carminati com’era prima delle insegne. Scorrendo si
+                accendono quelle che c’erano davvero, anno per anno, nel punto esatto in cui
+                erano montate.</p>
+            </div>
+          </article>
+          <article class="step" data-year="1948">
+            <div class="card">
+              <p class="card__kicker">Alla fine della guerra</p>
+              <p class="card__year">1948</p>
+              <p class="card__stat"><b data-active-count></b> insegne accese</p>
+              <p>Le prime insegne del dopoguerra vendono cose semplici: dentifrici, scarpe,
+                rasoi, impermeabili, sapone, cioccolato. Non uno stile di vita, ma quello che
+                serve, e che per qualche anno era mancato.</p>
+            </div>
+          </article>
+          <article class="step step--right" data-year="1958">
+            <div class="card">
+              <p class="card__kicker">Il boom economico</p>
+              <p class="card__year">1958</p>
+              <p class="card__stat"><b data-active-count></b> insegne accese</p>
+              <p>Arrivano le bibite (la Coca-Cola si accende nel 1953), poi penne, carta
+                carbone, liquori, lucido da scarpe: gli oggetti di un paese che lavora sempre
+                più in ufficio e comincia a concedersi qualcosa.</p>
+            </div>
+          </article>
+          <article class="step" data-year="1975">
+            <div class="card">
+              <p class="card__kicker">Negli anni di piombo</p>
+              <p class="card__year">1975</p>
+              <p class="card__stat"><b data-active-count></b> insegne accese</p>
+              <p>Orologi, elettrodomestici, aperitivi, birre, abiti su misura. In piazza sono
+                anni di cortei e di tensioni; sopra, la pubblicità continua a promettere
+                benessere.</p>
+            </div>
+          </article>
+          <article class="step step--right" data-year="1987">
+            <div class="card">
+              <p class="card__kicker">La Milano da bere</p>
+              <p class="card__year">1987</p>
+              <p class="card__stat"><b data-active-count></b> insegne accese</p>
+              <p>Quasi solo tecnologia e finanza: impianti hi-fi, televisori, videocassette,
+                fotocopiatrici, sempre più spesso di marchi giapponesi. E poi banche, banche,
+                banche.</p>
+            </div>
+          </article>
+          <article class="step" data-year="1999">
+            <div class="card">
+              <p class="card__kicker">Fine secolo</p>
+              <p class="card__year">1999</p>
+              <p class="card__stat"><b data-active-count></b> insegne accese</p>
+              <p>Ne restano poche, quasi tutte di elettronica. [Da completare: cosa succede
+                dopo il 2000.]</p>
+            </div>
+          </article>
+
+          <!-- scrolling through this tall step scrubs the year 1945 → 1999 -->
+          <div class="step step--scrub" data-scrub-from="1945" data-scrub-to="1999">
+            <div class="card card--scrub">
+              <p class="card__year">Tutto di fila</p>
+              <p>Continuando a scorrere si attraversano tutti i 54 anni. Oppure si può
+                premere <b>Guarda con la musica</b>: la sequenza completa dura tre minuti, sulle
+                note di “Milan me bel belèe”.</p>
+              <div class="scrub-bar" aria-hidden="true"><i></i></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BODY TEXT ============ -->
+      <section class="prose">
+        <h2 class="section-title reveal">Sacro e profano</h2>
+        <p class="reveal dropcap">
+          Piazza del Duomo non è mai stata solo una piazza. È il posto dove Milano celebra la
+          propria vita pubblica, e anche lì sacro e profano si mescolano senza troppi
+          imbarazzi: i funerali e le manifestazioni, i concerti, gli addobbi di Natale. Le
+          insegne stavano sopra a tutto questo, e nelle fotografie di quegli anni finiscono
+          quasi sempre sullo sfondo.
+        </p>
+        <blockquote class="pullquote reveal">
+          <p>Un contraltare profano, perfettamente posizionato di fronte a una delle facciate
+            sacre più famose d’Italia.</p>
+        </blockquote>
+        <p class="reveal">
+          Raccontano anche una città che ha sempre cercato di essere moderna, a volte
+          riuscendoci e altre volte no, e che per molti è stata il posto in cui riporre le
+          speranze di un futuro migliore. Le insegne, in fondo, servivano a mostrarlo, quel
+          futuro, un marchio alla volta.
+        </p>
+      </section>
+
+      <!-- ============ LOGO WALL ============ -->
+      <section id="insegne" class="band">
+        <header class="band__head reveal">
+          <p class="kicker">Il catalogo</p>
+          <h2 class="section-title">Tutte le <span data-total-logos>—</span> insegne</h2>
+          <p class="band__dek">
+            Consumismo, edonismo, innovazione, tecnologia: ogni insegna mai apparsa sulla
+            facciata, ridisegnata a mano. Passandoci sopra si vedono gli anni in cui è rimasta
+            accesa.
+          </p>
+        </header>
+        <!-- #logo-wall / #logo-wall-grid are filled by js/duomoLights.js -->
+        <div id="logo-wall">
+          <div id="logo-wall-grid"></div>
+        </div>
+      </section>
+
+      <!-- ============ TIMELINE ============ -->
+      <section id="cronologia" class="split">
+        <div class="split__viz">
+          <div id="timeline">
+            <svg id="timelineSvg" viewBox="308 -17.5 456 544"></svg>
+            <div id="timeline-tooltip" class="tile-tooltip"></div>
+          </div>
+          <label class="year-scrubber">
+            <span class="dock__label">Anno</span>
+            <input id="timeline-year" type="range" min="1945" max="1999" step="1" value="1999" />
+            <output id="timeline-year-out">1999</output>
+          </label>
+        </div>
+        <div class="split__text prose">
+          <p class="kicker reveal">La cronologia</p>
+          <h2 class="section-title reveal">Mezzo secolo in un cerchio</h2>
+          <p class="reveal">
+            Ogni arco è un’insegna: comincia l’anno in cui si accende e finisce quello in cui
+            si spegne. Il cerchio parte dal 1945 e gira in senso orario fino al 1999.
+          </p>
+          <p class="reveal">
+            Alcune sono durate pochissimo, un anno o poco più. Altre hanno attraversato
+            decenni: quella di Hermes è rimasta accesa dal 1946 al 1976, quella del lucido da
+            scarpe Brill dal 1951 al 1979. Con il cursore si vede quali erano accese in un
+            certo anno.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============ GALLERY ============ -->
+      <section id="archivio" class="band">
+        <header class="band__head reveal">
+          <p class="kicker">L’archivio</p>
+          <h2 class="section-title">La piazza, in foto</h2>
+          <p class="band__dek">
+            Le fotografie d’archivio da cui sono state ricostruite le insegne, dal dopoguerra
+            alla fine degli anni Novanta.
+          </p>
+        </header>
+        <!-- filled by js/article.js from GALLERY -->
+        <div class="gallery" id="gallery"></div>
+      </section>
+
+      <!-- ============ CLOSING ============ -->
+      <section class="prose">
+        <h2 class="section-title reveal">Le luci si spengono</h2>
+        <p class="reveal">
+          [Da completare: come e quando sono state tolte.] Di sicuro dovevano essere
+          bellissime con la nebbia, che è svanita più o meno insieme a loro.
+        </p>
+        <figure class="poem reveal">
+          <figcaption><b>Milano</b> · Umberto Saba</figcaption>
+          <blockquote>
+            <p>Fra le tue pietre e le tue nebbie faccio<br />
+              villeggiatura. Mi riposo in piazza<br />
+              del Duomo. Invece<br />
+              di stelle<br />
+              ogni sera si accendono parole.</p>
+            <p>Niente riposa della vita come<br />
+              la vita.</p>
+          </blockquote>
+        </figure>
+        <aside class="method reveal">
+          <h3>Metodo e fonti</h3>
+          <p>
+            [Da completare: come sono state datate le insegne, quali archivi sono stati
+            consultati, margini di incertezza.]
+          </p>
+        </aside>
+      </section>
+    </main>
+
+    <footer class="colophon">
+      <p>
+        Testi, design e sviluppo —
+        <a href="https://www.andreagiambelli.com" target="_blank" rel="noopener">Andrea Giambelli</a><br />
+        Disegno dei logotipi —
+        <a href="https://www.fraoprandi.com" target="_blank" rel="noopener">Francesca Oprandi</a>
+      </p>
+      <p class="colophon__small">Musica: “Milan me bel belèe”</p>
+    </footer>
+
+    <dialog class="lightbox" id="lightbox" aria-label="Foto d'archivio">
+      <button class="lightbox__close" type="button" aria-label="Chiudi">×</button>
+      <button class="lightbox__nav lightbox__nav--prev" type="button" aria-label="Precedente">‹</button>
+      <figure>
+        <img alt="" />
+        <figcaption></figcaption>
+      </figure>
+      <button class="lightbox__nav lightbox__nav--next" type="button" aria-label="Successiva">›</button>
+    </dialog>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"
+      integrity="sha384-CjloA8y00+1SDAUkjs099PVfnY2KmDC2BZnws9kh8D/lX1s46w6EPhpXdqMfjK6i"
+      crossorigin="anonymous"
+    ></script>
+    <script src="js/d3.timeline.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/d3-simple-slider@2.0.0/dist/d3-simple-slider.min.js"
+      integrity="sha384-XYy10gcQb0p97MeGw1x2cFykI0ciuCaDKRV/GmepDUz3lkXjYmYukZ5XANX//MqX"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/scrollama@3.2.0/build/scrollama.min.js"
+      integrity="sha384-trt5UkaI73mRdcngswspDe4cRMaS9HcWgFr+IgtdUGBbsS4/9FF7MDIX7xl+O9zI"
+      crossorigin="anonymous"
+    ></script>
+    <script src="js/duomoLights.js"></script>
+    <script src="js/article.js"></script>
+  </body>
+</html>
