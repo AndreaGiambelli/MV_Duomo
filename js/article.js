@@ -100,14 +100,7 @@ d3.csv("logos.csv").then((rows) => {
   });
 });
 
-/// Dock: play button label + scalable slider ///
-
-// duomoLights.js flips the button's text between Play and Pause; mirror it
-// into data-state so the CSS can show an Italian label and icon.
-const playButton = document.getElementById("play-button");
-new MutationObserver(() => {
-  playButton.dataset.state = playButton.textContent.trim() === "Pause" ? "playing" : "paused";
-}).observe(playButton, { childList: true, characterData: true, subtree: true });
+/// Dock: scalable slider ///
 
 lightsReady.then(() => {
   const sliderSvg = document.querySelector("#slider .slider-svg");

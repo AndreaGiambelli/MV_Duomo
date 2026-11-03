@@ -671,7 +671,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
 
   // "A" toggles play/pause from anywhere on the page, same as the button.
   // e.repeat guards against the key firing continuously while held down.
-  window.addEventListener("keydown", function (e) {
+  // Pages without the button (articolo.html) don't play the song at all.
+  if (!playButton.empty()) window.addEventListener("keydown", function (e) {
     if (!e.repeat && e.key.toLowerCase() === "a") togglePlay();
   });
 

@@ -449,7 +449,7 @@ body.is-past-hero .topbar__brand {
   gap: 20px;
   width: min(100% - 2 * var(--gutter), 980px);
   margin: 0 auto 18px;
-  padding: 8px 10px 8px 8px;
+  padding: 10px 14px 10px 24px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--glass);
@@ -458,59 +458,6 @@ body.is-past-hero .topbar__brand {
   font-family: var(--f-ui);
   position: relative;
   z-index: 2;
-}
-
-/* duomoLights.js toggles this button's text between "Play" and "Pause"
-   and reads it back to know the state, so the label shown is drawn from
-   data-state (kept in sync by js/article.js) instead. */
-#play-button {
-  flex: none;
-  width: auto;
-  height: 40px;
-  padding: 0 18px 0 14px;
-  border-radius: 999px;
-  background: var(--neon);
-  color: var(--bg);
-  font-size: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 0 24px rgb(255 92 138 / 0.45);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-#play-button::before {
-  content: "";
-  width: 0;
-  height: 0;
-  border-left: 10px solid currentColor;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-}
-
-#play-button::after {
-  content: "Guarda con la musica";
-  font-family: var(--f-ui);
-  font-size: 14px;
-  font-weight: 600;
-}
-
-#play-button[data-state="playing"]::before {
-  width: 10px;
-  height: 12px;
-  border: none;
-  border-left: 3px solid currentColor;
-  border-right: 3px solid currentColor;
-}
-
-#play-button[data-state="playing"]::after {
-  content: "Pausa";
-}
-
-#play-button:hover {
-  background: var(--neon);
-  transform: translateY(-1px);
-  box-shadow: 0 0 36px rgb(255 92 138 / 0.7);
 }
 
 .dock__year {
@@ -569,12 +516,13 @@ body.is-past-hero .topbar__brand {
   stroke: none;
 }
 
+/* on phones the slider is too small to grab: just the year */
 @media (max-width: 720px) {
   .dock {
-    gap: 12px;
+    width: auto;
+    padding: 8px 18px;
   }
-  #slider,
-  .dock__year {
+  #slider {
     display: none;
   }
 }
@@ -929,6 +877,72 @@ body.is-past-hero .topbar__brand {
 }
 
 /* ---------- footer ---------- */
+
+/* ---------- the music video (MM) ---------- */
+
+.music {
+  border-top: 1px solid var(--line);
+  padding: 16vh var(--gutter);
+  background:
+    radial-gradient(60% 50% at 50% 0%, rgb(24 4 46 / 0.9), transparent 75%),
+    var(--bg);
+}
+
+.music__inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: clamp(32px, 5vw, 72px);
+  align-items: center;
+}
+
+.music__text p {
+  margin: 0 0 1.2em;
+  text-wrap: pretty;
+}
+
+.music__text .lede {
+  font-size: 1.15em;
+}
+
+/* stand-in for the video until it's out: the song's own title sign on
+   the intro's purple-to-black, as in the video's first seconds */
+.music__video {
+  margin: 0;
+}
+
+.music__frame {
+  aspect-ratio: 16 / 9;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #18042e, #000);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 0.45);
+}
+
+.music__frame img {
+  width: 72%;
+  height: auto;
+  filter: drop-shadow(0 0 18px rgb(255 92 138 / 0.35));
+}
+
+.music__video figcaption {
+  margin-top: 12px;
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-mute);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .music__inner {
+    grid-template-columns: 1fr;
+  }
+}
 
 .colophon {
   border-top: 1px solid var(--line);
