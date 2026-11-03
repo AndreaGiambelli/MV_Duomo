@@ -1106,6 +1106,13 @@ body.is-past-hero .topbar__brand {
   font-size: 12px;
 }
 
+.colophon__disclaimer {
+  max-width: 62ch;
+  margin: 3em auto 0;
+  line-height: 1.65;
+  text-wrap: pretty;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
