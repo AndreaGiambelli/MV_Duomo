@@ -98,7 +98,228 @@ d3.csv("logos.csv").then((rows) => {
     if (!count) return;
     count.textContent = logos.filter((d) => +d.logoStart <= year && +d.logoEnd >= year).length;
   });
+  drawTreemap(logos);
 });
+
+/// Categories treemap ///
+
+// logos.csv's categoria values, as the article names them
+const CATEGORY_LABELS = {
+  alcool: "Alcolici",
+  drinks: "Bibite",
+  fashion: "Moda",
+  tech: "Tecnologia",
+  health: "Salute",
+  office: "Ufficio",
+  food: "Alimentari",
+  bank: "Banche",
+  beauty: "Bellezza",
+  appl: "Elettrodomestici",
+  clothes: "Abbigliamento",
+  media: "Media",
+  insu: "Assicurazioni",
+  school: "Scuole",
+  arredo: "Arredamento",
+  travel: "Viaggi",
+  "": "Da classificare",
+};
+// The treemap paints each cell in its sign's color on the facade, and each
+// category in the color of its longest-lived sign. Until the facade SVG has
+// loaded, and for the few signs with no artwork, the round timeline's muted
+// base color.
+const SIGN_FALLBACK_COLOR = "#b0909d";
+const UNCLASSIFIED_COLOR = "#8a8a96";
+const signColorsReady = new Promise((resolve) =>
+  document.addEventListener("duomolights:colors", resolve, { once: true })
+);
+
+// A sign's color: its facade glow color where it has one (duomoLights.js
+// leaves neutral colors out of that, so white signs have none), else the
+// most used bright stroke/fill in its artwork, white included. unlit: a
+// painted sign, which doesn't glow on the facade either.
+function signLook(name) {
+  const key = name.trim().toLowerCase();
+  const sign = Array.from(document.querySelectorAll("#Logos [data-logo]")).find(
+    (el) => el.dataset.logo.trim().toLowerCase() === key
+  );
+  if (!sign) return null;
+  const unlit = sign.classList.contains("unlit") || !!sign.querySelector(".unlit");
+  const glow = window.duomoLights && window.duomoLights.accentColor(name);
+  if (glow) return { color: glow, unlit };
+  const counts = new Map();
+  sign.querySelectorAll("*").forEach((el) => {
+    ["stroke", "fill"].forEach((attr) => {
+      const value = el.getAttribute(attr);
+      if (!value || value === "none" || value.startsWith("url")) return;
+      const { r, g, b } = d3.rgb(value);
+      // dark backing panels aren't light
+      if (Math.max(r, g, b) < 70) return;
+      counts.set(value, (counts.get(value) || 0) + 1);
+    });
+  });
+  const top = d3.greatest(counts, ([, n]) => n);
+  return top ? { color: top[0], unlit } : null;
+}
+
+// "aperol2white" -> "Aperol", "burghyBanner" -> "Burghy Banner"
+function prettyLogoName(key) {
+  const base = key.replace(/\d.*$/, "").replace(/([a-z])([A-Z])/g, "$1 $2");
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function drawTreemap(logos) {
+  const container = document.getElementById("treemap");
+  const tooltip = document.getElementById("treemap-tooltip");
+  if (!container) return;
+
+  const byCategory = d3.group(logos, (d) => d.categoria || "");
+  const root = d3
+    .hierarchy({
+      children: Array.from(byCategory, ([cat, items]) => ({ cat, children: items.map((logo) => ({ logo })) })),
+    })
+    .count()
+    // categories by size (unclassified last), signs inside by first year
+    .sort((a, b) =>
+      a.data.logo
+        ? a.data.logo.logoStart - b.data.logo.logoStart
+        : (a.data.cat === "") - (b.data.cat === "") || b.value - a.value
+    );
+  function colorSigns() {
+    root.leaves().forEach((leaf) => {
+      const look = signLook(leaf.data.logo.logoName);
+      leaf.color = look ? look.color : SIGN_FALLBACK_COLOR;
+      leaf.unlit = look ? look.unlit : false;
+      // its own offset in the facade signs' 9s flicker, so they don't
+      // all dip together
+      leaf.flickerDelay = -Math.random() * 9;
+    });
+    root.children.forEach((cat) => {
+      const coloured = cat.leaves().filter((leaf) => leaf.color !== SIGN_FALLBACK_COLOR);
+      const longest = d3.greatest(coloured, (leaf) => leaf.data.logo.logoEnd - leaf.data.logo.logoStart);
+      cat.color = cat.data.cat === "" ? UNCLASSIFIED_COLOR : longest ? longest.color : SIGN_FALLBACK_COLOR;
+    });
+  }
+  colorSigns();
+
+  // only categories big enough get their name drawn inside; the rest are
+  // listed in a legend under the treemap (thresholds set per width in render)
+  let minLabelW = 130;
+  let minLabelH = 110;
+  const hasLabel = (d) => d.x1 - d.x0 > minLabelW && d.y1 - d.y0 > minLabelH;
+  const legend = d3.select(container).append("ul").attr("class", "tm-legend");
+
+  function render() {
+    const style = getComputedStyle(container);
+    const width = container.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+    const small = width < 600;
+    const height = Math.round(small ? width * 1.7 : width * 0.56);
+    minLabelW = small ? 96 : 130;
+    minLabelH = small ? 86 : 110;
+    const labelTop = small ? 50 : 60;
+
+    d3
+      .treemap()
+      .size([width, height])
+      .tile(d3.treemapSquarify.ratio(1.2))
+      .paddingInner((d) => (d.depth === 0 ? 12 : 2))
+      .paddingOuter((d) => (d.depth === 0 ? 0 : 7))
+      .paddingTop((d) => (d.depth === 1 && hasLabel(d) ? labelTop : d.depth === 0 ? 0 : 7))
+      .round(true)(root);
+
+    const svg = d3
+      .select(container)
+      .selectAll("svg")
+      .data([null])
+      .join((enter) => enter.insert("svg", ".tm-legend"))
+      .attr("viewBox", `0 0 ${width} ${height}`);
+
+    const cats = svg
+      .selectAll("g.tm-cat")
+      .data(root.children, (d) => d.data.cat)
+      .join("g")
+      .attr("class", "tm-cat")
+      .style("--c", (d) => d.color)
+      .style("--i", (d, i) => i);
+
+    cats.selectAll("*").remove();
+    cats
+      .append("rect")
+      .attr("class", "tm-tube")
+      .attr("x", (d) => d.x0)
+      .attr("y", (d) => d.y0)
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("height", (d) => d.y1 - d.y0)
+      .attr("rx", 10);
+
+    cats
+      .selectAll("rect.tm-leaf")
+      .data((d) => d.leaves())
+      .join("rect")
+      .attr("class", (d) => (d.unlit ? "tm-leaf tm-leaf--unlit" : "tm-leaf"))
+      .style("--lc", (d) => d.color)
+      .style("--fd", (d) => d.flickerDelay + "s")
+      .attr("x", (d) => d.x0)
+      .attr("y", (d) => d.y0)
+      .attr("width", (d) => Math.max(0, d.x1 - d.x0))
+      .attr("height", (d) => Math.max(0, d.y1 - d.y0))
+      .attr("rx", 3)
+      .on("mousemove", (event, d) => {
+        const logo = d.data.logo;
+        tooltip.innerHTML =
+          `<strong>${prettyLogoName(logo.logoName)}</strong><br>` +
+          `${CATEGORY_LABELS[d.parent.data.cat] ?? d.parent.data.cat} · ${logo.logoStart}–${logo.logoEnd}`;
+        // kept clear of the screen edges (it's centred on the pointer)
+        tooltip.style.left = Math.min(innerWidth - 90, Math.max(90, event.clientX)) + "px";
+        tooltip.style.top = event.clientY + "px";
+        tooltip.style.opacity = "1";
+      })
+      .on("mouseleave", () => (tooltip.style.opacity = "0"));
+
+    const labelled = cats.filter(hasLabel);
+    labelled
+      .append("text")
+      .attr("class", "tm-name")
+      .attr("x", (d) => d.x0 + 14)
+      .attr("y", (d) => d.y0 + (small ? 27 : 32))
+      .text((d) => CATEGORY_LABELS[d.data.cat] ?? d.data.cat);
+    labelled
+      .append("text")
+      .attr("class", "tm-count")
+      .attr("x", (d) => d.x0 + 15)
+      .attr("y", (d) => d.y0 + (small ? 42 : 50))
+      .text((d) => `${d.value} INSEGNE`);
+
+    legend
+      .selectAll("li")
+      .data(root.children.filter((d) => !hasLabel(d)), (d) => d.data.cat)
+      .join("li")
+      .style("--c", (d) => d.color)
+      .html((d) => `<i></i>${CATEGORY_LABELS[d.data.cat] ?? d.data.cat} <b>${d.value}</b>`);
+  }
+
+  render();
+  signColorsReady.then(() => {
+    colorSigns();
+    render();
+  });
+  let lastWidth = container.clientWidth;
+  new ResizeObserver(() => {
+    if (container.clientWidth === lastWidth) return;
+    lastWidth = container.clientWidth;
+    render();
+  }).observe(container);
+
+  // the categories switch on one by one once the treemap is in view
+  const lightUp = new IntersectionObserver(
+    (entries) => {
+      if (!entries[0].isIntersecting) return;
+      container.classList.add("is-lit");
+      lightUp.disconnect();
+    },
+    { threshold: 0.3 }
+  );
+  lightUp.observe(container);
+}
 
 /// Dock: scalable slider ///
 

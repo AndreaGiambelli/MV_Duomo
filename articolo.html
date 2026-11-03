@@ -230,6 +230,21 @@
         </div>
       </section>
 
+      <!-- ============ CATEGORIES TREEMAP ============ -->
+      <section id="categorie" class="treemap-section">
+        <header class="band__head reveal">
+          <p class="kicker">Cosa si vendeva</p>
+          <h2 class="section-title">Le insegne per categoria</h2>
+          <p class="band__dek">
+            Ogni rettangolo è una categoria, grande quanto il numero di insegne che ne fanno
+            parte; dentro, una cella per ogni insegna.
+          </p>
+        </header>
+        <!-- drawn by js/article.js from logos.csv -->
+        <div class="treemap" id="treemap" role="img" aria-label="Treemap delle insegne per categoria"></div>
+        <div class="tile-tooltip treemap-tooltip" id="treemap-tooltip"></div>
+      </section>
+
       <!-- ============ TIMELINE ============ -->
       <section id="cronologia" class="split">
         <div class="split__viz">
@@ -265,8 +280,9 @@
           <p class="kicker">L’archivio</p>
           <h2 class="section-title">La piazza, in foto</h2>
           <p class="band__dek">
-            Le fotografie d’archivio da cui sono state ricostruite le insegne, dal dopoguerra
-            alla fine degli anni Novanta.
+            Per ricostruire le insegne sono state analizzate circa 240 fotografie della piazza:
+            foto d’archivio, cartoline, fotogrammi di film e di servizi televisivi. Queste sono
+            alcune delle più significative, ciascuna con l’anno in cui è stata scattata.
           </p>
         </header>
         <!-- filled by js/article.js from GALLERY -->

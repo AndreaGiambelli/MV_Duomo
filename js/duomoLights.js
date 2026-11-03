@@ -723,6 +723,8 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
     hideDrawnFacade(svgMap);
     applyNeonGlow(svgMap.querySelector("#Logos"));
     logoAccentColor = buildLogoAccentColorMap(svgMap.querySelector("#Logos"));
+    // articolo.html's treemap paints each sign in this same color
+    document.dispatchEvent(new CustomEvent("duomolights:colors"));
     // Only the node where each logo starts gets the year-based opacity
     // toggle: one with no [data-logo] ancestor, or one whose name differs
     // from its nearest ancestor's (a distinct sign nested inside another,
@@ -1873,6 +1875,9 @@ d3.csv("logos.csv" + CACHE_BUST, type).then(function (data) {
       if (year !== null) slider.value(year);
     },
     isPlaying: () => moving,
+    // each sign's glow color (normalized key -> CSS color), filled once
+    // the facade SVG has loaded (the "duomolights:colors" event)
+    accentColor: (name) => logoAccentColor.get(normalizeLogoKey(name)),
   };
   document.dispatchEvent(new CustomEvent("duomolights:ready"));
 

@@ -707,6 +707,154 @@ body.is-past-hero .topbar__brand {
   padding: 8px 12px;
 }
 
+/* ---------- categories treemap ---------- */
+
+.treemap-section {
+  padding: 16vh 0 4vh;
+}
+
+.treemap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+.treemap svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* each category is a neon tube bent into a rectangle, in the color of its
+   longest-lived sign (--c); each cell inside glows in its own sign's color
+   (--lc), with the facade signs' flicker -- both set by js/article.js */
+.tm-cat rect.tm-tube {
+  fill: color-mix(in srgb, var(--c) 7%, transparent);
+  stroke: var(--c);
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 9px var(--c));
+}
+
+.tm-cat rect.tm-leaf {
+  fill: color-mix(in srgb, var(--lc) 16%, transparent);
+  stroke: var(--lc);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 1px var(--lc)) drop-shadow(0 0 4px var(--lc));
+  animation: neon-flicker 9s infinite;
+  animation-delay: var(--fd, 0s);
+  transition: fill 0.15s ease;
+}
+
+/* painted signs don't glow on the facade, and don't here */
+.tm-cat rect.tm-leaf--unlit {
+  filter: brightness(0.75);
+  animation: none;
+}
+
+.tm-cat rect.tm-leaf:hover {
+  fill: color-mix(in srgb, var(--lc) 60%, transparent);
+}
+
+.tm-cat text {
+  fill: var(--c);
+  pointer-events: none;
+}
+
+.tm-cat .tm-name {
+  font-family: var(--f-display);
+  font-size: 26px;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--c) 70%, transparent));
+}
+
+@media (max-width: 600px) {
+  .tm-cat .tm-name {
+    font-size: 21px;
+  }
+  .tm-cat .tm-count {
+    font-size: 10px;
+  }
+}
+
+.tm-legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 22px;
+  margin: 22px 0 0;
+  padding: 0;
+  font-family: var(--f-ui);
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.tm-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tm-legend i {
+  width: 14px;
+  height: 10px;
+  border: 2px solid var(--c);
+  border-radius: 3px;
+  box-shadow: 0 0 6px var(--c);
+}
+
+.tm-legend b {
+  font-family: var(--f-mono);
+  font-weight: 400;
+  color: var(--ink-mute);
+}
+
+.tm-cat .tm-count {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  letter-spacing: 0.1em;
+}
+
+/* unlit until the section is reached, then each category switches on
+   like a neon sign: a couple of stutters, then steady (staggered with
+   --i by js/article.js) */
+.tm-cat {
+  opacity: 0.08;
+}
+
+.treemap.is-lit .tm-cat {
+  animation: tm-switch-on 0.9s steps(1, end) forwards;
+  animation-delay: calc(var(--i) * 110ms);
+}
+
+@keyframes tm-switch-on {
+  0% { opacity: 0.08; }
+  20% { opacity: 0.9; }
+  30% { opacity: 0.15; }
+  45% { opacity: 1; }
+  55% { opacity: 0.35; }
+  70%, 100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tm-cat rect.tm-leaf {
+    animation: none;
+  }
+  .tm-cat,
+  .treemap.is-lit .tm-cat {
+    opacity: 1;
+    animation: none;
+  }
+}
+
+.treemap-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: auto;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
 /* ---------- radial timeline ---------- */
 
 .split {
